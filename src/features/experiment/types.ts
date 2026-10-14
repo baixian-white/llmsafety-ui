@@ -149,3 +149,33 @@ export interface DashboardStudent {
   status: '已完成' | '进行中' | '待开始'
   weakness: string
 }
+
+export type SourceCaseCategory = 'jailbreak' | 'hallucination'
+
+export interface TestPlatformModel {
+  id: string
+  name: string
+  version: string
+}
+
+export interface DefenseTest {
+  id: number
+  name: string
+  process: string
+  output: string
+  illegal: boolean
+}
+
+export interface ExperimentCase {
+  id: string
+  category: SourceCaseCategory
+  modelId: string
+  title: string
+  question: string
+  prompt: string
+  baselineResponse: string
+  referenceAnswer?: string
+  correctedResponse?: string
+  defenseTests: DefenseTest[]
+  tags: string[]
+}
