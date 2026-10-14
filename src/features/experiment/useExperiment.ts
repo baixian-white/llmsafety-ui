@@ -10,7 +10,7 @@ import {
   getStepFeedback,
   validateAnswer,
 } from './engine'
-import { buildConversationAnswer } from './conversationEngine'
+import { buildConversationAnswer, isMatchingRetestRun } from './conversationEngine'
 import type {
   AbilityProfile,
   ExperimentStage,
@@ -73,6 +73,29 @@ const getBrowserStorage = (): Storage | undefined => {
   }
 }
 
+const clearConversationStageArtifacts = (state: ExperimentState, stageId: ConversationStage) => {
+  const affectedSteps = experimentSteps.filter((item) => item.conversationStage === stageId)
+  const affectedIds = new Set(affectedSteps.map((step) => step.id))
+  const hadRecordedResult = affectedSteps.some((step) => (
+    step.id in state.answers
+    || step.id in state.feedback
+    || state.completedStepIds.includes(step.id)
+  ))
+  for (const stepId of affectedIds) {
+    delete state.answers[stepId]
+    delete state.feedback[stepId]
+  }
+  state.completedStepIds = state.completedStepIds.filter((stepId) => !affectedIds.has(stepId))
+  if (hadRecordedResult) {
+    const firstAffectedIndex = experimentSteps.findIndex((step) => affectedIds.has(step.id))
+    if (firstAffectedIndex >= 0) state.currentStepIndex = Math.min(state.currentStepIndex, firstAffectedIndex)
+    if (state.status === 'completed') {
+      state.status = 'in-progress'
+      state.completedAt = null
+    }
+  }
+}
+
 export const createExperimentStore = (storage: Storage | undefined = getBrowserStorage()): ExperimentStore => {
   const restoreWarning = ref('')
 
@@ -91,12 +114,27 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
         restoreWarning.value = '实验记录无法恢复，已为你创建新的实验记录。'
         return createInitialState()
       }
-      return {
+      const restoredState: ExperimentState = {
         ...createInitialState(),
         ...parsed,
         conversations: parsed.conversations ?? {},
         currentStepIndex: Math.min(Math.max(parsed.currentStepIndex, 0), experimentSteps.length - 1),
       }
+      const retestSource = restoredState.conversations.injection
+        || restoredState.conversations.jailbreak
+        || restoredState.conversations.hallucination
+        || restoredState.conversations.baseline
+      const defenseRun = restoredState.conversations.defense
+      if (defenseRun && (!retestSource || !isMatchingRetestRun(defenseRun, retestSource))) {
+        delete restoredState.conversations.defense
+        clearConversationStageArtifacts(restoredState, 'defense')
+        try {
+          storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify(restoredState))
+        } catch {
+          restoreWarning.value = '已忽略失效的防御复测记录，但浏览器无法更新本地保存结果。'
+        }
+      }
+      return restoredState
     } catch {
       restoreWarning.value = '实验记录无法恢复，已为你创建新的实验记录。'
       return createInitialState()
@@ -230,8 +268,19 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
     persist()
   }
 
+  const clearConversationAnswers = (stageId: ConversationStage) => {
+    clearConversationStageArtifacts(state.value, stageId)
+  }
+
+  const invalidateDefenseRetest = () => {
+    delete state.value.conversations.defense
+    clearConversationAnswers('defense')
+  }
+
   const setConversationRun = (stageId: ConversationStage, run: ConversationRun) => {
+    if (stageId !== 'defense') invalidateDefenseRetest()
     state.value.conversations[stageId] = run
+    clearConversationAnswers(stageId)
     if (state.value.status === 'not-started') startExperiment()
     persist()
   }
@@ -255,9 +304,8 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
 
   const clearConversationRun = (stageId: ConversationStage) => {
     delete state.value.conversations[stageId]
-    for (const step of experimentSteps.filter((item) => item.conversationStage === stageId)) {
-      delete state.value.answers[step.id]
-    }
+    clearConversationAnswers(stageId)
+    if (stageId !== 'defense') invalidateDefenseRetest()
     persist()
   }
 

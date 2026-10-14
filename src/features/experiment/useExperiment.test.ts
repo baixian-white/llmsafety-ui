@@ -114,4 +114,150 @@ describe('experiment store persistence', () => {
     restored.resetExperiment()
     expect(restored.state.value.conversations).toEqual({})
   })
+
+  it('requires a new assessment after the same conversation stage is sent again', () => {
+    const store = createExperimentStore(storage)
+    const caseData: ExperimentCase = {
+      id: 'jailbreak-qwen-max-1',
+      category: 'jailbreak',
+      modelId: 'qwen-max',
+      title: '原平台越狱案例',
+      question: '原始问题',
+      prompt: '原始提示词',
+      baselineResponse: '原始模型回答',
+      defenseTests: [],
+      tags: ['原平台案例'],
+    }
+    const firstRun = createConversationRun(caseData, {
+      stageId: 'jailbreak',
+      sentPrompt: '第一次发送',
+      defenseEnabled: false,
+    })
+    store.setConversationRun('jailbreak', firstRun)
+    store.updateConversationAssessment('jailbreak', [firstRun.evidenceCandidates[0]], 'unsafe')
+    store.state.value.completedStepIds.push('jailbreak-verdict')
+    store.state.value.feedback['jailbreak-verdict'] = {
+      severity: 'success',
+      title: '已完成',
+      message: '旧一轮对话已经完成判定。',
+      knowledge: '旧知识反馈',
+      earnedPoints: 4,
+      maxPoints: 4,
+    }
+    expect(store.state.value.answers['jailbreak-verdict']).toBeDefined()
+
+    const secondRun = createConversationRun(caseData, {
+      stageId: 'jailbreak',
+      sentPrompt: '第二次发送',
+      defenseEnabled: false,
+    })
+    store.setConversationRun('jailbreak', secondRun)
+
+    expect(store.state.value.answers['jailbreak-verdict']).toBeUndefined()
+    expect(store.state.value.completedStepIds).not.toContain('jailbreak-verdict')
+    expect(store.state.value.feedback['jailbreak-verdict']).toBeUndefined()
+    expect(store.state.value.conversations.jailbreak?.sentPrompt).toBe('第二次发送')
+  })
+
+  it('invalidates a saved defense retest when an upstream attack conversation changes', () => {
+    const store = createExperimentStore(storage)
+    const caseData: ExperimentCase = {
+      id: 'jailbreak-qwen-max-1',
+      category: 'jailbreak',
+      modelId: 'qwen-max',
+      title: '原平台注入案例',
+      question: '原始问题',
+      prompt: '原始提示词',
+      baselineResponse: '原始模型回答',
+      defenseTests: [],
+      tags: ['原平台案例', '指令覆盖'],
+    }
+    const attackRun = createConversationRun(caseData, {
+      stageId: 'injection',
+      sentPrompt: '攻击提示词一',
+      defenseEnabled: false,
+    })
+    store.setConversationRun('injection', attackRun)
+    const defenseRun = createConversationRun(caseData, {
+      stageId: 'defense',
+      sentPrompt: attackRun.sentPrompt,
+      defenseEnabled: true,
+    })
+    store.setConversationRun('defense', defenseRun)
+    store.updateConversationAssessment('defense', [defenseRun.evidenceCandidates[0]], 'unsafe')
+    expect(store.state.value.answers['defense-retest']).toBeDefined()
+
+    const changedAttackRun = createConversationRun(caseData, {
+      stageId: 'injection',
+      sentPrompt: '攻击提示词二',
+      defenseEnabled: false,
+    })
+    store.setConversationRun('injection', changedAttackRun)
+
+    expect(store.state.value.conversations.defense).toBeUndefined()
+    expect(store.state.value.answers['defense-retest']).toBeUndefined()
+  })
+
+  it('drops a stale defense retest while restoring persisted browser state', () => {
+    const store = createExperimentStore(storage)
+    const caseData: ExperimentCase = {
+      id: 'jailbreak-qwen-max-1',
+      category: 'jailbreak',
+      modelId: 'qwen-max',
+      title: '原平台注入案例',
+      question: '原始问题',
+      prompt: '原始提示词',
+      baselineResponse: '原始模型回答',
+      defenseTests: [],
+      tags: ['原平台案例', '指令覆盖'],
+    }
+    const attackRun = createConversationRun(caseData, {
+      stageId: 'injection',
+      sentPrompt: '攻击提示词一',
+      defenseEnabled: false,
+    })
+    store.setConversationRun('injection', attackRun)
+    store.updateConversationAssessment('injection', [attackRun.evidenceCandidates[0]], 'injected')
+    const defenseRun = createConversationRun(caseData, {
+      stageId: 'defense',
+      sentPrompt: attackRun.sentPrompt,
+      defenseEnabled: true,
+    })
+    store.setConversationRun('defense', defenseRun)
+    store.updateConversationAssessment('defense', [defenseRun.evidenceCandidates[0]], 'unsafe')
+
+    const stale = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY) || '{}')
+    stale.conversations.injection.sentPrompt = '后来修改的攻击提示词'
+    stale.completedStepIds.push('defense-retest')
+    stale.feedback['defense-retest'] = {
+      severity: 'success',
+      title: '已完成',
+      message: '旧防御复测已经完成。',
+      knowledge: '旧知识反馈',
+      earnedPoints: 3.3,
+      maxPoints: 3.3,
+    }
+    stale.status = 'completed'
+    stale.completedAt = '2026-10-14T12:00:00.000Z'
+    stale.currentStepIndex = 31
+    storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify(stale))
+
+    const restored = createExperimentStore(storage)
+    expect(restored.state.value.conversations.defense).toBeUndefined()
+    expect(restored.state.value.answers['defense-retest']).toBeUndefined()
+    expect(restored.state.value.completedStepIds).not.toContain('defense-retest')
+    expect(restored.state.value.feedback['defense-retest']).toBeUndefined()
+    expect(restored.state.value.status).toBe('in-progress')
+    expect(restored.state.value.completedAt).toBeNull()
+    expect(restored.state.value.currentStepIndex).toBe(25)
+
+    const normalized = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY) || '{}')
+    expect(normalized.conversations.defense).toBeUndefined()
+    expect(normalized.answers['defense-retest']).toBeUndefined()
+    expect(normalized.completedStepIds).not.toContain('defense-retest')
+    expect(normalized.feedback['defense-retest']).toBeUndefined()
+    expect(normalized.status).toBe('in-progress')
+    expect(normalized.completedAt).toBeNull()
+    expect(normalized.currentStepIndex).toBe(25)
+  })
 })

@@ -123,7 +123,7 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import ConversationEvidencePanel from './ConversationEvidencePanel.vue'
 import { loadExperimentCases, testPlatformModels } from './caseAdapter'
-import { createConversationRun } from './conversationEngine'
+import { createConversationRun, isMatchingRetestRun } from './conversationEngine'
 import type { ConversationRun, ConversationStage, ConversationVerdict, ExperimentCase, SourceCaseCategory } from './types'
 
 const props = defineProps<{
@@ -140,13 +140,16 @@ const emit = defineEmits<{
   'model-change': [modelId: string]
 }>()
 
-const selectedModelId = ref(props.retestSource?.modelId || props.existingRun?.modelId || props.initialModelId || testPlatformModels[0].id)
-const selectedCategory = ref<SourceCaseCategory>(props.retestSource?.sourceCategory || props.existingRun?.sourceCategory || (props.stage === 'hallucination' ? 'hallucination' : 'jailbreak'))
+const restoredRun = props.retestSource && props.existingRun && !isMatchingRetestRun(props.existingRun, props.retestSource)
+  ? undefined
+  : props.existingRun
+const selectedModelId = ref(props.retestSource?.modelId || restoredRun?.modelId || props.initialModelId || testPlatformModels[0].id)
+const selectedCategory = ref<SourceCaseCategory>(props.retestSource?.sourceCategory || restoredRun?.sourceCategory || (props.stage === 'hallucination' ? 'hallucination' : 'jailbreak'))
 const cases = ref<ExperimentCase[]>([])
-const selectedCaseId = ref(props.retestSource?.caseId || props.existingRun?.caseId || '')
-const prompt = ref(props.retestSource?.sentPrompt || props.existingRun?.sentPrompt || '')
-const activeRun = ref<ConversationRun | undefined>(props.existingRun)
-const displayedAssistant = ref(props.existingRun?.messages.find((item) => item.role === 'assistant')?.content || '')
+const selectedCaseId = ref(props.retestSource?.caseId || restoredRun?.caseId || '')
+const prompt = ref(props.retestSource?.sentPrompt || restoredRun?.sentPrompt || '')
+const activeRun = ref<ConversationRun | undefined>(restoredRun)
+const displayedAssistant = ref(restoredRun?.messages.find((item) => item.role === 'assistant')?.content || '')
 const isLoadingCases = ref(false)
 const isGenerating = ref(false)
 const loadError = ref('')
@@ -180,7 +183,7 @@ const reloadCases = async () => {
   isLoadingCases.value = true
   try {
     cases.value = await loadExperimentCases(effectiveCategory.value, selectedModelId.value)
-    const lockedId = props.retestSource?.caseId || props.existingRun?.caseId
+    const lockedId = props.retestSource?.caseId || restoredRun?.caseId
     if (lockedId && cases.value.some((item) => item.id === lockedId)) selectedCaseId.value = lockedId
     else if (!cases.value.some((item) => item.id === selectedCaseId.value)) selectedCaseId.value = ''
     onCaseChange(false)
@@ -202,7 +205,7 @@ const onModelChange = () => {
 
 const onCaseChange = (clearRun = true) => {
   const item = selectedCase.value
-  if (item) prompt.value = props.retestSource?.sentPrompt || props.existingRun?.sentPrompt || item.prompt
+  if (item) prompt.value = props.retestSource?.sentPrompt || restoredRun?.sentPrompt || item.prompt
   if (clearRun && activeRun.value?.caseId !== selectedCaseId.value) {
     activeRun.value = undefined
     displayedAssistant.value = ''

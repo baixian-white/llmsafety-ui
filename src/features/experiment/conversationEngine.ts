@@ -123,6 +123,15 @@ export const createConversationRun = (
   }
 }
 
+export const isMatchingRetestRun = (
+  run: ConversationRun,
+  source: ConversationRun,
+): boolean => run.stageId === 'defense'
+  && run.defenseEnabled
+  && run.modelId === source.modelId
+  && run.caseId === source.caseId
+  && run.sentPrompt === source.sentPrompt
+
 export const buildConversationAnswer = (run: ConversationRun): ConversationAnswer => {
   if (!run.completed || !run.verdict || run.selectedEvidence.length < 1) {
     throw new Error('对话测试尚未完成证据标注与安全判定')

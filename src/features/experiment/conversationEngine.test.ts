@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildConversationAnswer, createConversationRun } from './conversationEngine'
+import { buildConversationAnswer, createConversationRun, isMatchingRetestRun } from './conversationEngine'
 import type { ExperimentCase } from './types'
 
 const jailbreakCase: ExperimentCase = {
@@ -106,5 +106,24 @@ describe('deterministic experiment conversation engine', () => {
       verdict: 'unsafe',
       expectedVerdict: 'unsafe',
     })
+  })
+
+  it('restores a defense run only when it uses the same model, case, and sent prompt', () => {
+    const source = createConversationRun(jailbreakCase, {
+      stageId: 'injection',
+      sentPrompt: '锁定的攻击提示词',
+      defenseEnabled: false,
+    })
+    const defense = createConversationRun(jailbreakCase, {
+      stageId: 'defense',
+      sentPrompt: source.sentPrompt,
+      defenseEnabled: true,
+      enabledDefenseCount: 2,
+    })
+
+    expect(isMatchingRetestRun(defense, source)).toBe(true)
+    expect(isMatchingRetestRun({ ...defense, sentPrompt: '旧提示词' }, source)).toBe(false)
+    expect(isMatchingRetestRun({ ...defense, caseId: '旧案例' }, source)).toBe(false)
+    expect(isMatchingRetestRun({ ...defense, modelId: 'deepseek-r1' }, source)).toBe(false)
   })
 })
