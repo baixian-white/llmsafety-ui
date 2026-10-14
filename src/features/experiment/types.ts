@@ -15,7 +15,7 @@ export type AbilityId =
   | 'comprehensive-decision'
 
 export type StepInputType = 'single' | 'multi' | 'range' | 'text'
-export type StepAnswer = string | string[] | number
+export type StepAnswer = string | string[] | number | ConversationAnswer
 export type FeedbackSeverity = 'success' | 'info' | 'warning' | 'danger'
 
 export interface ExperimentStage {
@@ -60,6 +60,7 @@ export interface ExperimentStep {
   minLength?: number
   recommendedKeywords?: string[]
   placeholder?: string
+  conversationStage?: ConversationStage
 }
 
 export interface StepFeedback {
@@ -121,6 +122,7 @@ export interface ExperimentState {
   pretestScore: number | null
   guideEnabled: boolean
   elapsedSeconds: number
+  conversations: Partial<Record<ConversationStage, ConversationRun>>
 }
 
 export interface ModelProfile {

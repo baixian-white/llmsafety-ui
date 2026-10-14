@@ -28,16 +28,36 @@ describe('answer validation and feedback', () => {
 
   it('rejects empty answers and accepts an available option', () => {
     expect(validateAnswer(modelStep(), '')).toBe(false)
-    expect(validateAnswer(modelStep(), 'balanced-model')).toBe(true)
+    expect(validateAnswer(modelStep(), 'deepseek-r1')).toBe(true)
     expect(validateAnswer(modelStep(), 'unknown-model')).toBe(false)
   })
 
   it('returns different feedback for different choices', () => {
-    const balanced = getStepFeedback(modelStep(), 'balanced-model')
-    const open = getStepFeedback(modelStep(), 'open-model')
+    const balanced = getStepFeedback(modelStep(), 'deepseek-r1')
+    const open = getStepFeedback(modelStep(), 'ernie-turbo')
 
     expect(balanced.message).not.toBe(open.message)
     expect(balanced.earnedPoints).toBeGreaterThan(open.earnedPoints)
+  })
+
+  it('requires a sent conversation, evidence and verdict for chat operations', () => {
+    const chatStep = experimentSteps.find((step) => step.id === 'jailbreak-verdict')!
+    const completeAnswer = {
+      stageId: 'jailbreak' as const,
+      caseId: 'jailbreak-qwen-max-1',
+      sent: true as const,
+      evidenceCount: 1,
+      verdict: 'unsafe' as const,
+      expectedVerdict: 'unsafe' as const,
+    }
+
+    expect(chatStep.conversationStage).toBe('jailbreak')
+    expect(validateAnswer(chatStep, 'success')).toBe(false)
+    expect(validateAnswer(chatStep, { ...completeAnswer, evidenceCount: 0 })).toBe(false)
+    expect(validateAnswer(chatStep, completeAnswer)).toBe(true)
+    expect(getStepFeedback(chatStep, completeAnswer).earnedPoints).toBe(chatStep.weight)
+    expect(getStepFeedback(chatStep, { ...completeAnswer, verdict: 'safe' }).earnedPoints)
+      .toBeLessThan(chatStep.weight)
   })
 })
 
@@ -84,7 +104,7 @@ describe('score and ability profile', () => {
 
   it('awards points for completed answers and applies a capped hint penalty', () => {
     const answers: Record<string, StepAnswer> = {
-      'model-profile': 'balanced-model',
+      'model-profile': 'deepseek-r1',
       'critical-assets': ['system-prompt', 'private-data'],
       'test-scope': ['jailbreak', 'hallucination', 'injection'],
     }

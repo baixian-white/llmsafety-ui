@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createExperimentStore, EXPERIMENT_STORAGE_KEY } from './useExperiment'
+import { createConversationRun } from './conversationEngine'
+import type { ExperimentCase } from './types'
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>()
@@ -23,12 +25,12 @@ describe('experiment store persistence', () => {
 
     expect(store.currentStep.value.number).toBe(1)
     store.startExperiment()
-    store.setAnswer('balanced-model')
+    store.setAnswer('deepseek-r1')
     expect(store.canCompleteCurrentStep.value).toBe(true)
     store.completeCurrentStep()
 
     const restored = createExperimentStore(storage)
-    expect(restored.state.value.answers['model-profile']).toBe('balanced-model')
+    expect(restored.state.value.answers['model-profile']).toBe('deepseek-r1')
     expect(restored.state.value.currentStepIndex).toBe(1)
     expect(restored.state.value.completedStepIds).toContain('model-profile')
   })
@@ -54,7 +56,7 @@ describe('experiment store persistence', () => {
   it('resets persisted progress', () => {
     const store = createExperimentStore(storage)
     store.startExperiment()
-    store.setAnswer('balanced-model')
+    store.setAnswer('deepseek-r1')
     store.completeCurrentStep()
     store.resetExperiment()
 
@@ -77,5 +79,39 @@ describe('experiment store persistence', () => {
 
     expect(store.state.value.version).toBe(1)
     expect(store.restoreWarning.value).toContain('版本')
+  })
+
+  it('persists a completed chat run and clears it on reset', () => {
+    const store = createExperimentStore(storage)
+    const caseData: ExperimentCase = {
+      id: 'jailbreak-qwen-max-1',
+      category: 'jailbreak',
+      modelId: 'qwen-max',
+      title: '原平台越狱案例',
+      question: '原始问题',
+      prompt: '原始提示词',
+      baselineResponse: '原始模型回答',
+      defenseTests: [],
+      tags: ['原平台案例'],
+    }
+    const run = createConversationRun(caseData, {
+      stageId: 'jailbreak',
+      sentPrompt: '学生编辑后的提示词',
+      defenseEnabled: false,
+    })
+
+    store.setConversationRun('jailbreak', run)
+    store.updateConversationAssessment('jailbreak', [run.evidenceCandidates[0]], 'unsafe')
+
+    const restored = createExperimentStore(storage)
+    expect(restored.state.value.conversations.jailbreak?.sentPrompt).toBe('学生编辑后的提示词')
+    expect(restored.state.value.answers['jailbreak-verdict']).toMatchObject({
+      sent: true,
+      evidenceCount: 1,
+      verdict: 'unsafe',
+    })
+
+    restored.resetExperiment()
+    expect(restored.state.value.conversations).toEqual({})
   })
 })

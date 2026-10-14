@@ -10,6 +10,7 @@ import {
   getStepFeedback,
   validateAnswer,
 } from './engine'
+import { buildConversationAnswer } from './conversationEngine'
 import type {
   AbilityProfile,
   ExperimentStage,
@@ -18,6 +19,9 @@ import type {
   ScoreSummary,
   SimulationMetrics,
   StepAnswer,
+  ConversationRun,
+  ConversationStage,
+  ConversationVerdict,
 } from './types'
 
 export const EXPERIMENT_STORAGE_KEY = 'llmsafety_virtual_experiment_v1'
@@ -46,6 +50,9 @@ interface ExperimentStore {
   finishExperiment: () => void
   loadDemoResult: () => void
   addElapsedSeconds: (seconds: number) => void
+  setConversationRun: (stageId: ConversationStage, run: ConversationRun) => void
+  updateConversationAssessment: (stageId: ConversationStage, evidence: string[], verdict: ConversationVerdict) => void
+  clearConversationRun: (stageId: ConversationStage) => void
 }
 
 const isExperimentState = (value: unknown): value is ExperimentState => {
@@ -87,6 +94,7 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
       return {
         ...createInitialState(),
         ...parsed,
+        conversations: parsed.conversations ?? {},
         currentStepIndex: Math.min(Math.max(parsed.currentStepIndex, 0), experimentSteps.length - 1),
       }
     } catch {
@@ -222,6 +230,37 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
     persist()
   }
 
+  const setConversationRun = (stageId: ConversationStage, run: ConversationRun) => {
+    state.value.conversations[stageId] = run
+    if (state.value.status === 'not-started') startExperiment()
+    persist()
+  }
+
+  const updateConversationAssessment = (
+    stageId: ConversationStage,
+    evidence: string[],
+    verdict: ConversationVerdict,
+  ) => {
+    const run = state.value.conversations[stageId]
+    if (!run) return
+    run.selectedEvidence = [...new Set(evidence.filter(Boolean))]
+    run.verdict = verdict
+    run.completed = run.selectedEvidence.length > 0
+    if (run.completed) {
+      const step = experimentSteps.find((item) => item.conversationStage === stageId)
+      if (step) state.value.answers[step.id] = buildConversationAnswer(run)
+    }
+    persist()
+  }
+
+  const clearConversationRun = (stageId: ConversationStage) => {
+    delete state.value.conversations[stageId]
+    for (const step of experimentSteps.filter((item) => item.conversationStage === stageId)) {
+      delete state.value.answers[step.id]
+    }
+    persist()
+  }
+
   return {
     state,
     restoreWarning,
@@ -246,6 +285,9 @@ export const createExperimentStore = (storage: Storage | undefined = getBrowserS
     finishExperiment,
     loadDemoResult,
     addElapsedSeconds,
+    setConversationRun,
+    updateConversationAssessment,
+    clearConversationRun,
   }
 }
 

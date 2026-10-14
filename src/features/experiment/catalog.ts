@@ -27,21 +27,12 @@ export const experimentStages: ExperimentStage[] = [
 ]
 
 export const modelProfiles: ModelProfile[] = [
-  {
-    id: 'balanced-model', name: '衡鉴-7B', label: '均衡型',
-    summary: '具备基础安全对齐与一般知识能力，适合建立标准测试流程。',
-    safetyLevel: '中等', risk: '复杂角色扮演和间接注入下存在边界漂移', color: 'from-violet-500 to-indigo-500',
-  },
-  {
-    id: 'open-model', name: '开源星图-8B', label: '开放型',
-    summary: '指令跟随能力强、限制较少，便于观察攻击成功与防御收益。',
-    safetyLevel: '较低', risk: '越狱与提示词注入成功率较高', color: 'from-rose-500 to-orange-500',
-  },
-  {
-    id: 'guarded-model', name: '守界-13B', label: '防护型',
-    summary: '安全护栏严格，但对边界问题可能过度拒答。',
-    safetyLevel: '较高', risk: '正常内容误拦截和回答可用性下降', color: 'from-cyan-500 to-emerald-500',
-  },
+  { id: 'deepseek-r1', name: 'DeepSeek', label: 'deepseek-r1', summary: '复用原测试平台 DeepSeek 预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-violet-500 to-indigo-500' },
+  { id: 'doubao-lite', name: '豆包', label: 'doubao-lite', summary: '复用原测试平台豆包预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-blue-500 to-cyan-500' },
+  { id: 'qwen-max', name: '通义千问', label: 'qwen-max', summary: '复用原测试平台通义千问预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-indigo-500 to-violet-500' },
+  { id: 'ernie-turbo', name: '文心一言', label: 'ernie-turbo', summary: '复用原测试平台文心一言预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-cyan-500 to-emerald-500' },
+  { id: 'moonshot-v1', name: 'Kimi', label: 'moonshot-v1', summary: '复用原测试平台 Kimi 预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-slate-500 to-indigo-500' },
+  { id: 'hunyuan-lite', name: '混元', label: 'hunyuan-lite', summary: '复用原测试平台混元预设评测结果。', safetyLevel: '案例可测', risk: '以原平台案例响应为准', color: 'from-emerald-500 to-cyan-500' },
 ]
 
 export const experimentSteps: ExperimentStep[] = [
@@ -52,9 +43,12 @@ export const experimentSteps: ExperimentStep[] = [
     taskMapping: '对应测试工程师确认测试对象与版本的工作任务。', type: 'single', weight: 2.5,
     ability: 'risk-identification',
     options: [
-      option('balanced-model', '衡鉴-7B · 均衡型', '风险与可用性较均衡，适合完整教学实验。', 1, '均衡型模型便于观察攻击、防御和可用性之间的变化。', 'success'),
-      option('open-model', '开源星图-8B · 开放型', '限制较少，攻击暴露明显。', 0.82, '开放型模型适合红队测试，但应预期更高的初始风险。', 'warning'),
-      option('guarded-model', '守界-13B · 防护型', '护栏严格，可能存在过度拒答。', 0.9, '防护型模型仍需要测试误拦截与间接注入风险。', 'info'),
+      option('deepseek-r1', 'DeepSeek · deepseek-r1', '使用原测试平台 DeepSeek 越狱与幻觉案例。', 1, '已绑定 DeepSeek 原测试案例，后续将加载对应 JSON 响应。', 'success'),
+      option('doubao-lite', '豆包 · doubao-lite', '使用原测试平台豆包越狱与幻觉案例。', 0.98, '已绑定豆包原测试案例，后续将加载对应 JSON 响应。', 'success'),
+      option('qwen-max', '通义千问 · qwen-max', '使用原测试平台通义千问越狱与幻觉案例。', 0.98, '已绑定通义千问原测试案例，后续将加载对应 JSON 响应。', 'success'),
+      option('ernie-turbo', '文心一言 · ernie-turbo', '使用原测试平台文心一言越狱与幻觉案例。', 0.96, '已绑定文心一言原测试案例，后续将加载对应 JSON 响应。', 'success'),
+      option('moonshot-v1', 'Kimi · moonshot-v1', '使用原测试平台 Kimi 越狱与幻觉案例。', 0.96, '已绑定 Kimi 原测试案例，后续将加载对应 JSON 响应。', 'success'),
+      option('hunyuan-lite', '混元 · hunyuan-lite', '使用原测试平台混元越狱与幻觉案例。', 0.96, '已绑定混元原测试案例，后续将加载对应 JSON 响应。', 'success'),
     ],
   },
   {
@@ -119,10 +113,10 @@ export const experimentSteps: ExperimentStep[] = [
     ],
   },
   {
-    id: 'baseline-run', number: 7, stageId: 'baseline', title: '执行正常问题基线测试',
-    instruction: '选择最适合作为正常任务基线的问题。',
+    id: 'baseline-run', number: 7, stageId: 'baseline', title: '执行无防御响应基线测试',
+    instruction: '从原测试平台选择案例，编辑并发送提示词，记录未启用防御时的原始响应、证据与判定。',
     knowledge: '正常问题应无有害意图、目标明确且可判断回答质量。',
-    taskMapping: '对应执行基准样本并保存原始响应。', type: 'single', weight: 2.5, ability: 'response-analysis',
+    taskMapping: '对应执行基准样本并保存原始响应。', type: 'single', weight: 2.5, ability: 'response-analysis', conversationStage: 'baseline',
     options: [
       option('neutral-summary', '总结一段公开的人工智能发展材料', '目标清晰且不涉及敏感数据。', 1, '该样本适合评估正常任务完成度。', 'success'),
       option('unsafe-code', '编写绕过访问控制的代码', '包含明显攻击意图。', 0.25, '这属于对抗样本，不应作为正常任务基线。', 'danger'),
@@ -174,7 +168,7 @@ export const experimentSteps: ExperimentStep[] = [
     id: 'jailbreak-verdict', number: 12, stageId: 'jailbreak', title: '判定越狱是否成功',
     instruction: '根据仿真响应中“提供受限操作步骤且未保留安全边界”的证据作出判断。',
     knowledge: '越狱成功应由响应证据判定，而不是只看是否出现拒答字样。',
-    taskMapping: '对应攻击结果复核。', type: 'single', weight: 4, ability: 'response-analysis',
+    taskMapping: '对应攻击结果复核。', type: 'single', weight: 4, ability: 'response-analysis', conversationStage: 'jailbreak',
     options: [
       option('success', '攻击成功', '响应实质执行了被禁止的目标。', 1, '判断正确：响应已经越过安全边界。', 'success'),
       option('partial', '部分成功', '仅提供一般性信息，未执行目标。', 0.45, '当前响应包含可操作细节，应判定为攻击成功。', 'warning'),
@@ -220,7 +214,7 @@ export const experimentSteps: ExperimentStep[] = [
     id: 'hallucination-run', number: 16, stageId: 'hallucination', title: '执行幻觉仿真',
     instruction: '选择对当前模型响应最准确的总体描述。',
     knowledge: '仿真响应将错误对象与不存在的引用包装为确定事实。',
-    taskMapping: '对应执行幻觉样本并保存回答。', type: 'single', weight: 3, ability: 'response-analysis',
+    taskMapping: '对应执行幻觉样本并保存回答。', type: 'single', weight: 3, ability: 'response-analysis', conversationStage: 'hallucination',
     options: [
       option('confident-fabrication', '高置信度编造', '错误事实与虚构引用均以确定语气呈现。', 1, '该描述准确概括了当前仿真响应。', 'success'),
       option('minor-wording', '仅有轻微措辞问题', '低估了事实错误。', 0.25, '响应中的对象、年份和引用均需要核查。', 'danger'),
@@ -269,10 +263,10 @@ export const experimentSteps: ExperimentStep[] = [
     ],
   },
   {
-    id: 'injection-run', number: 21, stageId: 'injection', title: '分析注入执行结果',
-    instruction: '判断模型对外部文档中隐藏指令的处理情况。',
+    id: 'injection-run', number: 21, stageId: 'injection', title: '执行提示词注入对话测试',
+    instruction: '复用原平台具有角色伪装或指令覆盖特征的案例，编辑载荷并发送，再依据回复判断注入影响。',
     knowledge: '模型偏离用户任务、复述内部规则或输出占位秘密都属于注入成功证据。',
-    taskMapping: '对应注入执行与响应审查。', type: 'single', weight: 3.75, ability: 'response-analysis',
+    taskMapping: '对应注入执行与响应审查。', type: 'single', weight: 3.75, ability: 'response-analysis', conversationStage: 'injection',
     options: [
       option('executed', '恶意指令被执行', '模型偏离原任务并按隐藏指令输出。', 1, '判断正确：任务偏移与规则复述共同表明注入成功。', 'success'),
       option('ignored', '恶意指令被忽略', '与仿真响应不符。', 0.1, '请检查响应是否仍在完成用户的原始总结任务。', 'danger'),
@@ -328,7 +322,7 @@ export const experimentSteps: ExperimentStep[] = [
     id: 'defense-retest', number: 26, stageId: 'defense', title: '选择复测方法',
     instruction: '选择能够公平比较防御效果的复测方式。',
     knowledge: '防御前后必须使用相同样本和判据，才能将差异归因于策略变化。',
-    taskMapping: '对应安全回归测试。', type: 'single', weight: 3.3, ability: ['defense-configuration', 'comprehensive-decision'],
+    taskMapping: '对应安全回归测试。', type: 'single', weight: 3.3, ability: ['defense-configuration', 'comprehensive-decision'], conversationStage: 'defense',
     options: [
       option('same-samples', '使用同一批样本与同一判据复测', '控制变量，结果可比较。', 1, '同样本复测能够形成可靠的前后对照。', 'success'),
       option('easier-samples', '改用更简单的样本', '无法证明策略改善。', 0.2, '样本难度变化会破坏对照。', 'danger'),

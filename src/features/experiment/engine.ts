@@ -9,6 +9,7 @@ import type {
   SimulationMetrics,
   StepAnswer,
   StepFeedback,
+  ConversationAnswer,
 } from './types'
 
 const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value))
@@ -17,11 +18,27 @@ const round = (value: number, digits = 1) => Number(value.toFixed(digits))
 const hasValue = (answer: StepAnswer | undefined): boolean => {
   if (Array.isArray(answer)) return answer.length > 0
   if (typeof answer === 'string') return answer.trim().length > 0
-  return Number.isFinite(answer)
+  if (typeof answer === 'number') return Number.isFinite(answer)
+  return Boolean(answer && typeof answer === 'object')
+}
+
+const isConversationAnswer = (answer: StepAnswer | undefined): answer is ConversationAnswer => {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return false
+  return answer.sent === true
+    && typeof answer.caseId === 'string'
+    && answer.caseId.length > 0
+    && typeof answer.evidenceCount === 'number'
+    && answer.evidenceCount > 0
+    && typeof answer.verdict === 'string'
+    && typeof answer.expectedVerdict === 'string'
 }
 
 export const validateAnswer = (step: ExperimentStep, answer: StepAnswer | undefined): boolean => {
   if (!hasValue(answer)) return false
+
+  if (step.conversationStage) {
+    return isConversationAnswer(answer) && answer.stageId === step.conversationStage
+  }
 
   if (step.type === 'single') {
     return typeof answer === 'string' && Boolean(step.options?.some((item) => item.value === answer))
@@ -52,6 +69,10 @@ export const validateAnswer = (step: ExperimentStep, answer: StepAnswer | undefi
 
 const answerRatio = (step: ExperimentStep, answer: StepAnswer | undefined): number => {
   if (!validateAnswer(step, answer)) return 0
+
+  if (step.conversationStage && isConversationAnswer(answer)) {
+    return answer.verdict === answer.expectedVerdict ? 1 : 0.48
+  }
 
   if (step.type === 'single') {
     return step.options?.find((item) => item.value === answer)?.scoreRatio ?? 0
@@ -97,7 +118,7 @@ export const getStepFeedback = (step: ExperimentStep, answer: StepAnswer): StepF
   const ratio = answerRatio(step, answer)
   const selectedOptions = Array.isArray(answer)
     ? answer.map((value) => step.options?.find((item) => item.value === value)).filter(Boolean)
-    : step.options?.filter((item) => item.value === answer) ?? []
+    : typeof answer === 'string' ? step.options?.filter((item) => item.value === answer) ?? [] : []
   const primary = selectedOptions.sort((a, b) => (b?.scoreRatio ?? 0) - (a?.scoreRatio ?? 0))[0]
   const earnedPoints = round(step.weight * ratio, 2)
   const severity = primary?.severity ?? severityFromRatio(ratio)
@@ -109,10 +130,16 @@ export const getStepFeedback = (step: ExperimentStep, answer: StepAnswer): StepF
     text: '改进建议已记录，系统已从完整性与措施覆盖度进行分析。',
   }
 
+  const conversationMessage = isConversationAnswer(answer)
+    ? answer.verdict === answer.expectedVerdict
+      ? `已完成对话式测试，证据与预设案例判据一致，共标注 ${answer.evidenceCount} 条证据。`
+      : `已完成对话式测试并标注 ${answer.evidenceCount} 条证据，但判定与预设案例证据不完全一致。`
+    : undefined
+
   return {
     severity,
     title: ratio >= 0.88 ? '判断充分' : ratio >= 0.6 ? '可以继续优化' : '建议重新检查证据',
-    message: primary?.feedback ?? genericMessages[step.type],
+    message: conversationMessage ?? primary?.feedback ?? genericMessages[step.type],
     knowledge: step.knowledge,
     earnedPoints,
     maxPoints: step.weight,
@@ -229,6 +256,7 @@ export const createInitialState = (): ExperimentState => ({
   pretestScore: null,
   guideEnabled: true,
   elapsedSeconds: 0,
+  conversations: {},
 })
 
 export const getLearningRecommendations = (profile: AbilityProfile): string[] => {
@@ -250,7 +278,23 @@ export const getLearningRecommendations = (profile: AbilityProfile): string[] =>
 export const buildDemoAnswers = (): Record<string, StepAnswer> => {
   const answers: Record<string, StepAnswer> = {}
   for (const step of experimentSteps) {
-    if (step.type === 'single') {
+    if (step.conversationStage) {
+      const verdict = step.conversationStage === 'hallucination'
+        ? 'hallucinated'
+        : step.conversationStage === 'defense'
+          ? 'blocked'
+          : step.conversationStage === 'injection'
+            ? 'injected'
+            : 'unsafe'
+      answers[step.id] = {
+        stageId: step.conversationStage,
+        caseId: `demo-${step.conversationStage}`,
+        sent: true,
+        evidenceCount: 2,
+        verdict,
+        expectedVerdict: verdict,
+      }
+    } else if (step.type === 'single') {
       answers[step.id] = [...(step.options ?? [])].sort((a, b) => b.scoreRatio - a.scoreRatio)[0]?.value ?? ''
     } else if (step.type === 'multi') {
       answers[step.id] = [...(step.options ?? [])]
