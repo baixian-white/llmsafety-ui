@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Sparkles } from "@/components/ui/sparkles";
-import { Icon } from '@iconify/vue'
+import { ArrowRight, BarChart3, CheckCircle2, FileText, FlaskConical, Route, ScanSearch, Target } from 'lucide-vue-next'
 import { computed } from "vue";
 import { useColorMode } from "@vueuse/core";
 
@@ -70,28 +70,28 @@ const products = [
 // 工作流程数据
 const workflowSteps = [
   {
-    icon: 'ph:plugs-connected-duotone',
-    title: '1. 连接您的模型',
-    description: '通过我们安全的API接口或SDK，轻松将您的AI模型接入测试平台，整个过程仅需几分钟。'
+    icon: Target,
+    title: '1. 明确测试任务',
+    description: '选择仿真模型、识别关键资产并建立正常问答与安全边界的基线。'
   },
   {
-    icon: 'ph:test-tube-duotone',
-    title: '2. 配置并执行测试',
-    description: '选择您需要的测试类型（越狱或幻觉），调整测试参数，一键启动全自动化的安全评估流程。'
+    icon: FlaskConical,
+    title: '2. 执行攻防实验',
+    description: '完成越狱、幻觉、提示词注入、防御配置和同样本复测等实质操作。'
   },
   {
-    icon: 'ph:chart-bar-duotone',
-    title: '3. 查看深度分析报告',
-    description: '测试完成后，系统会生成一份全面的交互式报告，直观展示模型的安全漏洞和幻觉指标。'
+    icon: BarChart3,
+    title: '3. 形成评测报告',
+    description: '依据过程记录、攻防指标和风险矩阵生成综合成绩、能力画像与实验报告。'
   }
 ]
 
 // 更多特性数据
 const moreFeatures = [
-  { icon: 'ph:cloud-arrow-up-duotone', title: '轻松集成', description: '提供 RESTful API 和 Python SDK，无缝集成到现有的 CI/CD 流程中。' },
-  { icon: 'ph:sparkle-duotone', title: '自动化报告', description: '自动生成 PDF 和 JSON 格式的详细测试报告，便于学生分享和归档。' },
-  { icon: 'ph:timer-duotone', title: '持续监控', description: '设置定时任务，对模型进行持续的安全监控，在新版本上线时自动触发测试。' },
-  { icon: 'ph:shield-checkered-duotone', title: '企业级安全', description: '所有数据传输和存储均采用端到端加密，确保模型和数据安全无虞。' }
+  { icon: Route, title: '教程式引导', description: '高亮当前操作并给出知识提示，完成有效操作后才能进入下一步。' },
+  { icon: ScanSearch, title: '规则化反馈', description: '不同选择产生不同仿真响应、风险指标、纠错建议和过程得分。' },
+  { icon: BarChart3, title: '能力画像', description: '从风险识别、攻击设计、响应分析、防御配置和综合决策形成画像。' },
+  { icon: FileText, title: '实验报告', description: '汇总操作证据、防御前后指标和安全结论，支持浏览器打印为PDF。' }
 ]
 
 </script>
@@ -118,7 +118,7 @@ const moreFeatures = [
           <h1 v-motion-slide-top :delay="300"
             class="inline-block text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight
          bg-clip-text text-transparent bg-gradient-to-b from-gray-900 to-gray-700
-         dark:from-white dark:to-gray-400 pb-4 whitespace-nowrap pr-2">
+         dark:from-white dark:to-gray-400 pb-4 pr-2">
             <!-- 保护您的AI，建立数字信任 -->
              以教育之力，筑牢人工智能防线
           </h1>
@@ -136,9 +136,12 @@ const moreFeatures = [
             class="mt-6 text-lg md:text-xl max-w-2xl mx-auto text-gray-600 dark:text-gray-300">
             测试模型的越狱漏洞，精准评估幻觉率，共同构筑人工智能安全观。
           </p>
-          <div v-motion-slide-top :delay="700" class="mt-10 flex flex-col sm:flex-row mx-20 gap-4 justify-center">
+          <div v-motion-slide-top :delay="700" class="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+            <RouterLink to="/experiment" class="inline-flex h-11 items-center justify-center rounded-md bg-purple px-6 font-medium text-white shadow-md shadow-purple/20 transition hover:-translate-y-0.5 hover:bg-purple/80 hover:shadow-lg">
+              进入虚拟仿真实验
+            </RouterLink>
             <Button size="lg"
-              class="bg-purple text-white hover:bg-purple/80 dark:hover:bg-purple/80 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg dark:shadow-purple/50 shadow-purple/20">
+              variant="outline" class="transition-all duration-300 transform hover:-translate-y-0.5 shadow-sm hover:shadow-md">
               <RouterLink to="/solution/adversarial-test">一键测试</RouterLink>
             </Button>
             <!-- <Button size="lg" variant="outline"
@@ -147,6 +150,20 @@ const moreFeatures = [
             </Button> -->
           </div>
         </div>
+      </section>
+
+      <section class="relative z-10 -mt-24 px-4 pb-16 sm:px-8">
+        <RouterLink to="/experiment" class="group mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] border border-violet-200 bg-white/85 shadow-2xl shadow-violet-500/10 backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-violet-500/20 dark:border-violet-500/20 dark:bg-slate-950/75 lg:grid-cols-[1.2fr_.8fr]">
+          <div class="p-7 sm:p-10">
+            <span class="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">2026“人工智能+”虚拟仿真实验教学项目</span>
+            <h2 class="mt-5 text-3xl font-black text-slate-950 dark:text-white">七阶段、32步大模型安全攻防实验</h2>
+            <p class="mt-3 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">以普通网站教程式引导串联越狱、幻觉、提示词注入、防御复测、过程评分、能力画像和实验报告。</p>
+            <span class="mt-6 inline-flex items-center gap-2 font-bold text-violet-600 dark:text-violet-300">查看实验设计 <ArrowRight class="size-4 transition group-hover:translate-x-1" /></span>
+          </div>
+          <div class="grid grid-cols-2 gap-px bg-violet-200/60 dark:bg-violet-500/20">
+            <div v-for="item in [{ value: '7', label: '实验阶段' }, { value: '32', label: '实质操作' }, { value: '100', label: '评价总分' }, { value: '5', label: '能力维度' }]" :key="item.label" class="flex flex-col items-center justify-center bg-violet-50/80 p-5 dark:bg-violet-950/30"><span class="text-4xl font-black text-violet-600 dark:text-violet-300">{{ item.value }}</span><span class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.label }}</span></div>
+          </div>
+        </RouterLink>
       </section>
 
       <!-- Product Introduction Section -->
@@ -175,7 +192,7 @@ const moreFeatures = [
               <p class="mt-4 text-lg text-gray-600 dark:text-gray-400">{{ product.description }}</p>
               <ul class="mt-6 space-y-3">
                 <li v-for="feature in product.features" :key="feature" class="flex items-center gap-3">
-                  <Icon icon="ph:check-circle-duotone" class="text-2xl text-[#5830D6]" />
+                  <CheckCircle2 class="size-6 text-[#5830D6]" />
                   <span class="text-gray-700 dark:text-gray-300">{{ feature }}</span>
                 </li>
               </ul>
@@ -216,7 +233,7 @@ const moreFeatures = [
                 class="p-6 text-center bg-white dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-800 shadow-md hover:shadow-xl hover:shadow-[#5830D6]/20 transition-all duration-300 transform hover:-translate-y-1">
                 <div class="flex justify-center">
                   <div class="w-16 h-16 rounded-full bg-[#5830D6]/10 flex items-center justify-center">
-                    <Icon :icon="step.icon" class="text-4xl text-[#5830D6]" />
+                    <component :is="step.icon" class="size-9 text-[#5830D6]" />
                   </div>
                 </div>
                 <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">{{ step.title }}
@@ -244,7 +261,7 @@ const moreFeatures = [
             <div v-for="(feature, index) in moreFeatures" :key="feature.title" v-motion-fade-visible-once
               :delay="300 + index * 150" class="p-6 text-center">
               <div class="flex justify-center">
-                <Icon :icon="feature.icon" class="text-5xl text-[#5830D6]" />
+                <component :is="feature.icon" class="size-11 text-[#5830D6]" />
               </div>
               <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">{{ feature.title }}
               </h3>

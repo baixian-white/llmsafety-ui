@@ -5,13 +5,42 @@ import { MotionPlugin } from '@vueuse/motion' // 1. 导入插件
 import {createRouter,createWebHistory} from 'vue-router'
 
 
-console.log("API_BASE =", import.meta.env.VITE_API_BASE)
 //配置路由规则
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: () => import('./pages/HomePage.vue'),
+  },
+  {
+    path: '/experiment',
+    name: '虚拟仿真实验',
+    component: () => import('./pages/experiment/ExperimentHome.vue'),
+  },
+  {
+    path: '/experiment/prepare',
+    name: '实验准备',
+    component: () => import('./pages/experiment/ExperimentPrepare.vue'),
+  },
+  {
+    path: '/experiment/run',
+    name: '实验操作台',
+    component: () => import('./pages/experiment/ExperimentRun.vue'),
+  },
+  {
+    path: '/experiment/result',
+    name: '实验结果',
+    component: () => import('./pages/experiment/ExperimentResult.vue'),
+  },
+  {
+    path: '/experiment/report',
+    name: '实验报告',
+    component: () => import('./pages/experiment/ExperimentReport.vue'),
+  },
+  {
+    path: '/experiment/dashboard',
+    name: '教师演示看板',
+    component: () => import('./pages/experiment/ExperimentDashboard.vue'),
   },
   {
     path: '/guanyuwomen/hezuohuoban',
@@ -218,7 +247,7 @@ const routes = [
     component: () => import('./pages/zhishiku/editor.vue'),
   },
   {
-    path: '/zhshiku/editor/:key',
+    path: '/zhishiku/editor/:key',
     name: 'md编辑页面（编辑）',
     component: () => import('./pages/zhishiku/editor.vue'),
   },
@@ -286,12 +315,18 @@ const routes = [
     name: 'Value Alignment',
     component: () => import('./pages/dataset/Value Alignment.vue'),
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: '页面未找到',
+    component: () => import('./pages/NotFound.vue'),
+  },
 ]
 
 //创建路由器
 const router = createRouter({
 history: createWebHistory(),
 routes,
+scrollBehavior: () => ({ top: 0 }),
 })
 //加载路由器
 const app = createApp(App)

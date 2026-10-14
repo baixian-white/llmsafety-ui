@@ -56,15 +56,13 @@
             <div class="flex items-center gap-1 shrink-0">
                 <Button @click="toggleDark()" variant="ghost" size="icon"
                     class=" bg-transparent dark:bg-transparent hover:bg-accent hover:text-purple dark:text-foreground dark:hover:bg-background dark:hover:text-purple">
-                    <Icon icon="line-md:moon-to-sunny-outline-loop-transition"
-                        class="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Icon icon="line-md:sunny-outline-to-moon-loop-transition"
-                        class="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <Sun class="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon class="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                     <span class="sr-only">切换主题</span>
                 </Button>
                 <Button @click="toggleNavbarVisibility" variant="ghost" size="icon"
                     class=" bg-transparent dark:bg-transparent hover:bg-accent hover:text-purple dark:text-foreground dark:hover:bg-background dark:hover:text-purple">
-                    <Icon icon="lucide:maximize" class="size-4" />
+                    <Maximize class="size-4" />
                     <span class="sr-only">隐藏导航栏</span>
                 </Button>
 
@@ -83,11 +81,11 @@
                         <div>
                             <div @click="item.open = !item.open"
                                 class="w-full flex justify-between items-center p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors duration-200">
-                                <a :href="item.href"
+                                <RouterLink :to="item.href"
                                     class="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
                                     {{ item.title }}
                                     <IconExternalLink v-if="!item.children" class="size-5" />
-                                </a>
+                                </RouterLink>
                                 <!-- 如果有子菜单，则显示展开/收起按钮 -->
                                 <button v-if="item.children"
                                     class="p-1 rounded-full hover:bg-purple-100 dark:hover:bg-slate-700">
@@ -101,11 +99,11 @@
                             <div v-if="item.children" :class="['submenu-wrapper', { 'open': item.open }]">
                                 <ul class="submenu pl-3 space-y-1">
                                     <li v-for="(child, key) in item.children" :key="key">
-                                        <a :href="child.href"
+                                        <RouterLink :to="child.href"
                                             class="flex items-center gap-1 p-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-purple-50 dark:hover:bg-slate-800 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-200">
                                             {{ child.title }}
                                             <IconExternalLink class="size-5" />
-                                        </a>
+                                        </RouterLink>
                                     </li>
                                 </ul>
                             </div>
@@ -119,8 +117,8 @@
                     <li>
                         <button @click="toggleDark()"
                             class="w-full flex items-center justify-center pt-1 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors duration-200">
-                            <Icon :icon="isDark ? 'line-md:moon-rising-alt-loop' : 'line-md:sun-rising-loop'"
-                                class="mr-2 text-lg"></Icon>
+                            <Moon v-if="isDark" class="mr-2 size-4" />
+                            <Sun v-else class="mr-2 size-4" />
                             切换主题
                         </button>
                     </li>
@@ -130,7 +128,7 @@
     </header>
     <Button v-if="isNavbarManuallyHidden" @click="toggleNavbarVisibility" variant="ghost" size="icon"
         class="inline-flex fixed top-2 right-4 z-[60] bg-background/80 backdrop-blur-md shadow-md hover:bg-accent hover:text-purple">
-        <Icon icon="lucide:minimize" class="size-4" />
+        <Minimize class="size-4" />
         <span class="sr-only">显示导航栏</span>
     </Button>
 </template>
@@ -150,7 +148,7 @@ import { Card } from '@/components/ui/card'
 import IconExternalLink from '@/components/icons/icon-external-link.vue'
 import IconMenuToClose from '@/components/icons/icon-menu-to-close.vue'
 import IconCloseToMenu from '@/components/icons/icon-close-to-menu.vue'
-import { Icon } from '@iconify/vue'
+import { Maximize, Minimize, Moon, Sun } from 'lucide-vue-next'
 
 interface NavItem {
     title: string
@@ -258,6 +256,10 @@ const navItems = reactive<NavItem[]>([
             { title: '国外政策', href: '/law4' },
             { title: '政策解读', href: '/law6' }
         ]
+    },
+    {
+        title: '虚拟仿真实验',
+        href: '/experiment',
     },
     {
         title: '测试平台',
