@@ -71,7 +71,20 @@
             </div>
 
             <div class="mt-6">
-              <ExperimentStepControl :step="currentStep" :model-value="currentAnswer" @update:model-value="updateAnswer" />
+              <ExperimentConversationWorkbench
+                v-if="currentStep.conversationStage"
+                :key="currentStep.id"
+                :stage="currentStep.conversationStage"
+                :initial-model-id="selectedExperimentModel"
+                :existing-run="currentConversation"
+                :retest-source="currentStep.conversationStage === 'defense' ? latestAttackRun : undefined"
+                :defense-layer-count="defenseLayerCount"
+                @model-change="syncExperimentModel"
+                @run="saveConversationRun"
+                @assessment="saveConversationAssessment"
+                @reset="resetConversationRun"
+              />
+              <ExperimentStepControl v-else :step="currentStep" :model-value="currentAnswer" @update:model-value="updateAnswer" />
             </div>
 
             <div v-if="pendingFeedback" class="mt-6 rounded-2xl border p-4" :class="feedbackClass">
@@ -101,17 +114,6 @@
 
         <article v-if="showKnowledge" class="rounded-2xl border border-cyan-200 bg-cyan-50/80 p-5 dark:border-cyan-500/20 dark:bg-cyan-950/20">
           <div class="flex items-start gap-3"><BookMarked class="mt-0.5 size-5 shrink-0 text-cyan-600 dark:text-cyan-300" /><div><h3 class="font-bold text-cyan-900 dark:text-cyan-100">知识库辅助</h3><p class="mt-2 text-sm leading-6 text-cyan-900/75 dark:text-cyan-100/75">{{ currentStep.knowledge }}</p><p class="mt-2 text-xs text-cyan-700 dark:text-cyan-300">工作任务映射：{{ currentStep.taskMapping }}</p></div></div>
-        </article>
-
-        <article v-if="activeEvidence" class="experiment-card">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div><span class="experiment-section-kicker">Preset simulation response</span><h2 class="mt-2 text-xl font-black text-slate-950 dark:text-white">{{ activeEvidence.label }}</h2></div>
-            <span class="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">虚拟仿真响应</span>
-          </div>
-          <div class="mt-5 grid gap-4 lg:grid-cols-2">
-            <div class="rounded-2xl bg-slate-950 p-5 text-sm leading-7 text-slate-200"><p class="mb-2 text-xs font-bold uppercase tracking-wider text-violet-300">模型回答</p>{{ activeEvidence.response }}</div>
-            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-100"><p class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">证据与判据</p>{{ activeEvidence.evidence }}</div>
-          </div>
         </article>
 
         <article v-if="currentStage.id === 'defense'" class="experiment-card">
@@ -151,16 +153,18 @@ import { ArrowLeft, ArrowRight, Award, BookMarked, BookOpen, Check, CheckCircle2
 import ExperimentGuide from '@/features/experiment/ExperimentGuide.vue'
 import ExperimentLayout from '@/features/experiment/ExperimentLayout.vue'
 import ExperimentStepControl from '@/features/experiment/ExperimentStepControl.vue'
+import ExperimentConversationWorkbench from '@/features/experiment/ExperimentConversationWorkbench.vue'
 import MetricComparison from '@/features/experiment/MetricComparison.vue'
-import { experimentStages, experimentSteps, simulationEvidence } from '@/features/experiment/catalog'
+import { experimentStages, experimentSteps } from '@/features/experiment/catalog'
 import { getStepFeedback } from '@/features/experiment/engine'
 import { useExperiment } from '@/features/experiment/useExperiment'
-import type { StageId, StepAnswer, StepFeedback } from '@/features/experiment/types'
+import type { ConversationRun, ConversationVerdict, StageId, StepAnswer, StepFeedback } from '@/features/experiment/types'
 
 const router = useRouter()
 const {
   state, restoreWarning, currentStep, currentStage, canCompleteCurrentStep, progress, score, metrics,
   startExperiment, setAnswer, completeCurrentStep, goBack, goToStep, useHint, setGuideEnabled, addElapsedSeconds,
+  setConversationRun, updateConversationAssessment, clearConversationRun,
 } = useExperiment()
 
 const pendingFeedback = ref<StepFeedback | null>(null)
@@ -171,13 +175,23 @@ const formattedTime = computed(() => {
   const seconds = state.value.elapsedSeconds
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
-const activeEvidence = computed(() => {
-  const stage = currentStage.value.id
-  if (stage === 'prepare' || stage === 'conclusion') return null
-  return simulationEvidence[stage]
+const currentConversation = computed(() => currentStep.value.conversationStage ? state.value.conversations[currentStep.value.conversationStage] : undefined)
+const selectedExperimentModel = computed(() => typeof state.value.answers['model-profile'] === 'string' ? state.value.answers['model-profile'] : 'deepseek-r1')
+const latestAttackRun = computed(() => state.value.conversations.injection || state.value.conversations.jailbreak || state.value.conversations.hallucination || state.value.conversations.baseline)
+const defenseLayerCount = computed(() => {
+  const configured = ['input-detection', 'prompt-protection', 'output-filter'].filter((id) => Boolean(state.value.answers[id])).length
+  return Math.max(1, configured)
 })
 const recentCompleted = computed(() => state.value.completedStepIds.slice(-4).reverse().map((id) => experimentSteps.find((step) => step.id === id)).filter((step): step is typeof experimentSteps[number] => Boolean(step)))
 const completionHint = computed(() => {
+  if (currentStep.value.conversationStage) {
+    const run = currentConversation.value
+    if (!run) return '选择原平台案例，编辑提示词并点击发送'
+    if (!run.messages.some((item) => item.role === 'assistant')) return '等待仿真模型完成响应'
+    if (!run.selectedEvidence.length) return '从模型回复和防御链中至少选择1条证据'
+    if (!run.verdict) return '根据证据作出安全判定并保存'
+    return '对话、证据和安全判定均已记录'
+  }
   if (currentStep.value.type === 'multi') return `选择 ${currentStep.value.minSelections ?? 1}—${currentStep.value.maxSelections ?? currentStep.value.options?.length} 项`
   if (currentStep.value.type === 'range') return '主动调整参数滑块并形成有效数值'
   if (currentStep.value.type === 'text') return `提交不少于 ${currentStep.value.minLength} 字的建议`
@@ -193,6 +207,25 @@ const feedbackClass = computed(() => ({
 const updateAnswer = (answer: StepAnswer) => {
   pendingFeedback.value = null
   setAnswer(answer)
+}
+const syncExperimentModel = (modelId: string) => {
+  if (!state.value.completedStepIds.includes('model-profile')) setAnswer(modelId, 'model-profile')
+}
+const saveConversationRun = (run: ConversationRun) => {
+  pendingFeedback.value = null
+  setConversationRun(run.stageId, run)
+}
+const saveConversationAssessment = (evidence: string[], verdict: ConversationVerdict) => {
+  const stage = currentStep.value.conversationStage
+  if (!stage) return
+  pendingFeedback.value = null
+  updateConversationAssessment(stage, evidence, verdict)
+}
+const resetConversationRun = () => {
+  const stage = currentStep.value.conversationStage
+  if (!stage) return
+  pendingFeedback.value = null
+  clearConversationRun(stage)
 }
 const requestHint = () => {
   useHint()

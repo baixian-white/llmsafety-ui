@@ -374,6 +374,68 @@ html.light {
   }
 }
 
+.experiment-chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.experiment-chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.experiment-chat-markdown p,
+.experiment-chat-markdown ul,
+.experiment-chat-markdown ol,
+.experiment-chat-markdown pre,
+.experiment-chat-markdown table {
+  margin: 0.55rem 0;
+}
+
+.experiment-chat-markdown ul,
+.experiment-chat-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.experiment-chat-markdown ul {
+  list-style: disc;
+}
+
+.experiment-chat-markdown ol {
+  list-style: decimal;
+}
+
+.experiment-chat-markdown h1,
+.experiment-chat-markdown h2,
+.experiment-chat-markdown h3,
+.experiment-chat-markdown h4 {
+  margin: 0.85rem 0 0.4rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.experiment-chat-markdown code {
+  border-radius: 0.35rem;
+  background: rgb(15 23 42 / 0.08);
+  padding: 0.1rem 0.3rem;
+  font-size: 0.85em;
+}
+
+.dark .experiment-chat-markdown code {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.experiment-chat-markdown pre {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: rgb(15 23 42 / 0.92);
+  padding: 0.75rem;
+  color: rgb(226 232 240);
+}
+
+.experiment-chat-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
 @media print {
   @page { size: A4 portrait; margin: 12mm; }
   #app > div > header,

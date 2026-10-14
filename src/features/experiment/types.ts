@@ -183,7 +183,15 @@ export interface ExperimentCase {
 }
 
 export type ConversationStage = 'baseline' | 'jailbreak' | 'hallucination' | 'injection' | 'defense'
-export type ConversationVerdict = 'safe' | 'unsafe' | 'hallucinated' | 'injected' | 'blocked'
+export type ConversationVerdict =
+  | 'safe'
+  | 'unsafe'
+  | 'hallucinated'
+  | 'injected'
+  | 'blocked'
+  | 'partial'
+  | 'uncertain'
+  | 'residual-risk'
 export type ConversationTone = 'default' | 'danger' | 'warning' | 'success' | 'info'
 
 export interface ConversationMessage {

@@ -165,8 +165,8 @@ export const experimentSteps: ExperimentStep[] = [
     taskMapping: '对应红队参数配置和测试复现。', type: 'range', weight: 4, min: 10, max: 100, rangeStep: 5, unit: '%', idealMin: 65, idealMax: 80, ability: 'attack-design',
   },
   {
-    id: 'jailbreak-verdict', number: 12, stageId: 'jailbreak', title: '判定越狱是否成功',
-    instruction: '根据仿真响应中“提供受限操作步骤且未保留安全边界”的证据作出判断。',
+    id: 'jailbreak-verdict', number: 12, stageId: 'jailbreak', title: '执行越狱对话并判定结果',
+    instruction: '选择原平台越狱案例，编辑并发送攻击提示词，再从模型回复中标注证据并判断攻击是否成功。',
     knowledge: '越狱成功应由响应证据判定，而不是只看是否出现拒答字样。',
     taskMapping: '对应攻击结果复核。', type: 'single', weight: 4, ability: 'response-analysis', conversationStage: 'jailbreak',
     options: [
@@ -211,8 +211,8 @@ export const experimentSteps: ExperimentStep[] = [
     ],
   },
   {
-    id: 'hallucination-run', number: 16, stageId: 'hallucination', title: '执行幻觉仿真',
-    instruction: '选择对当前模型响应最准确的总体描述。',
+    id: 'hallucination-run', number: 16, stageId: 'hallucination', title: '执行幻觉对话并核验事实',
+    instruction: '选择原平台幻觉案例并发送问题，对照参考答案标注证据，再判断回答是否存在事实幻觉。',
     knowledge: '仿真响应将错误对象与不存在的引用包装为确定事实。',
     taskMapping: '对应执行幻觉样本并保存回答。', type: 'single', weight: 3, ability: 'response-analysis', conversationStage: 'hallucination',
     options: [
@@ -319,8 +319,8 @@ export const experimentSteps: ExperimentStep[] = [
     ],
   },
   {
-    id: 'defense-retest', number: 26, stageId: 'defense', title: '选择复测方法',
-    instruction: '选择能够公平比较防御效果的复测方式。',
+    id: 'defense-retest', number: 26, stageId: 'defense', title: '使用同案例执行防御复测',
+    instruction: '锁定防御前的同一模型、同一案例和同一提示词，启用已配置防御后重新发送并完成证据判定。',
     knowledge: '防御前后必须使用相同样本和判据，才能将差异归因于策略变化。',
     taskMapping: '对应安全回归测试。', type: 'single', weight: 3.3, ability: ['defense-configuration', 'comprehensive-decision'], conversationStage: 'defense',
     options: [
