@@ -1,0 +1,512 @@
+<!-- src/pages/zhishiku/anquankuangjia.vue -->
+<template>
+  <div
+    class="w-full min-h-screen bg-gray-50 dark:bg-[#0A071A] text-gray-800 dark:text-gray-200 overflow-y-auto font-sans transition-colors duration-500 bg-grid-pattern-light dark:bg-grid-pattern-dark relative"
+  >
+    <!-- 顶部阅读进度条 -->
+    <div class="fixed top-0 left-0 right-0 h-[3px] z-50">
+      <div
+        class="h-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-cyan-500 transition-[width] duration-150 ease-out"
+        :style="{ width: progress + '%' }"
+      />
+    </div>
+
+    <!-- 深色模式霓虹光晕 -->
+    <div class="absolute inset-0 z-0 overflow-hidden hidden dark:block pointer-events-none">
+      <div class="absolute top-[-25%] left-[-10%] w-[560px] h-[560px] bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
+      <div class="absolute bottom-[-25%] right-[-10%] w-[560px] h-[560px] bg-cyan-500/20 rounded-full blur-3xl animate-pulse animation-delay-4000"></div>
+    </div>
+
+    <!-- 主体 -->
+    <main class="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <!-- 玻璃态 Hero -->
+      <section class="relative mb-12 md:mb-16 animate-fade-in-down">
+        <div
+          class="max-w-5xl mx-auto rounded-3xl border border-white/20 bg-white/50 dark:bg-white/5 backdrop-blur-xl p-8 md:p-12 shadow-[0_20px_60px_-20px_rgba(99,102,241,.35)] dark:shadow-[0_20px_60px_-20px_rgba(6,182,212,.25)]"
+        >
+          <div class="flex flex-col lg:flex-row gap-8 items-start lg:items-center">
+            <div class="flex-1">
+              <p class="text-xs uppercase tracking-widest text-indigo-500 mb-2">Model Safety</p>
+              <h1
+                class="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-cyan-500"
+              >
+                {{ pageTitle }}
+              </h1>
+              <p class="mt-4 text-gray-600 dark:text-gray-300 leading-relaxed">
+                从评测、对齐、防护、监控到合规，构建<span class="font-semibold">大模型安全闭环</span>。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 正文玻璃卡（图片点击放大：事件委托） -->
+      <section class="animate-fade-in-up">
+        <div
+          class="max-w-5xl mx-auto p-6 md:p-10 border border-white/15 bg-white/60 dark:bg-white/5 rounded-3xl shadow-xl dark:shadow-2xl shadow-gray-200/40 dark:shadow-indigo-500/10 backdrop-blur-xl"
+        >
+          <article
+            ref="articleEl"
+            @click="onArticleClick"
+            class="prose prose-gray dark:prose-invert max-w-none
+                   prose-headings:scroll-mt-24
+                   prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl
+                   prose-p:leading-7
+                   prose-a:underline-offset-2 hover:prose-a:underline
+                   prose-img:rounded-xl prose-img:shadow
+                   prose-strong:font-semibold"
+            v-html="html"
+          />
+        </div>
+      </section>
+
+      <!-- 底部 CTA -->
+      <section class="text-center mt-12 md:mt-16 animate-fade-in-up" style="animation-delay: 120ms;">
+        <div class="max-w-4xl mx-auto rounded-3xl border border-white/20 bg-gradient-to-r from-indigo-500/10 via-fuchsia-500/10 to-cyan-500/10 dark:from-indigo-500/15 dark:via-fuchsia-500/15 dark:to-cyan-500/15 backdrop-blur p-8 md:p-10">
+          <h2 class="text-2xl md:text-3xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-cyan-500">
+            想把这些安全框架应用到你的模型里？
+          </h2>
+          <p class="text-gray-500 dark:text-gray-400 mb-6">立即启动安全评测与治理，让你的 AI 更可信、更合规。</p>
+          <router-link to="/guanyuwomen/lianxiwomen"
+            class="inline-flex items-center gap-2 h-11 px-6 rounded-full font-semibold text-white bg-gradient-to-r from-indigo-500 to-cyan-500 shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5">
+            联系我们
+          </router-link>
+        </div>
+      </section>
+    </main>
+
+    <!-- 浮动快捷按钮：返回顶部 / 主题切换 -->
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+      <button
+        class="size-11 rounded-full border border-white/20 bg-white/70 dark:bg-white/10 backdrop-blur-md shadow-md hover:shadow-lg transition flex items-center justify-center"
+        @click="scrollToTop"
+        aria-label="返回顶部"
+      >
+        <svg class="size-5" viewBox="0 0 24 24" fill="none"><path d="M12 19V5m0 0l-6 6m6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button
+        class="size-11 rounded-full border border-white/20 bg-white/70 dark:bg-white/10 backdrop-blur-md shadow-md hover:shadow-lg transition flex items-center justify-center"
+        @click="toggleDark"
+        aria-label="切换主题"
+      >
+        <svg v-if="isDark" class="size-5" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg v-else class="size-5" viewBox="0 0 24 24" fill="none"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364-1.414-1.414M8.05 8.05 6.636 6.636m10.728 0-1.414 1.414M8.05 15.95l-1.414 1.414" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <!-- 图片灯箱（点击图片放大） -->
+    <transition name="fade">
+      <div
+        v-if="lightbox.open"
+        class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        @click.self="closeLightbox"
+      >
+        <button
+          class="absolute top-4 right-4 size-10 rounded-full bg-white/90 dark:bg-white/10 border border-white/20 flex items-center justify-center shadow hover:scale-105 transition"
+          @click="closeLightbox"
+          aria-label="关闭"
+        >
+          ✕
+        </button>
+        <img
+          :src="lightbox.src"
+          :alt="lightbox.alt || 'image'"
+          class="max-w-[95vw] max-h-[85vh] rounded-xl shadow-2xl object-contain"
+        />
+        <div v-if="lightbox.alt" class="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm text-white/80">
+          {{ lightbox.alt }}
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+
+
+<script setup lang="ts">
+/**
+ * 依赖：
+ *   npm i markdown-it
+ * 如果你使用 Tailwind v4，请在 index.css 中加入：
+ *   @plugin "@tailwindcss/typography";
+ * 并在模板中使用 .prose / dark:prose-invert（本页已用）。
+ */
+import MarkdownIt from "markdown-it"
+import { computed, ref,onBeforeUnmount, onMounted } from "vue"
+
+/** ① 直接内联 Markdown 原文（去掉了容易出错的模板拼接写法） */
+const mdRaw = ref<string>(
+`
+# 全面解析：AI 风险图谱与15项安全防控（参考 Google SAIF 2025）
+
+## 一、背景
+
+随着生成式 AI 和大模型的快速普及，它们已经逐渐进入企业核心业务系统、个人应用场景甚至关键基础设施。与此同时，安全隐患也在加速暴露。
+Google 在 2025 年提出的 **SAIF（Secure AI Framework）**，可以视为 AI 领域的“安全说明书”，它系统地梳理了 AI 生命周期中的 15 大风险点，并配套提出防控措施。
+
+![图片1](./assets/图片1.jpeg)
+
+与业界常见的 **OWASP Top 10 LLM** 相比，SAIF 更强调 **全链路治理** 和 **数据合规**，并提出了一些具有前瞻性的风险类别，比如 **推断敏感数据**。这份清单不仅是企业上 AI 前的安全检查表，更是行业未来治理的参考蓝图。
+
+## 二、15大AI风险与防控措施
+
+### 1. 数据中毒（Data Poisoning）
+
+**风险描述**
+恶意或错误数据被注入训练集，使模型性能下降、输出偏向特定方向，甚至暗藏后门。类似于“篡改药方”，影响的是整个疗效。
+**案例**：攻击者在公共数据源中植入“污染样本”，一旦被模型采集并训练，后续输出将被操控。
+
+**防控措施**
+
+* 建立训练数据的清洗与溯源机制；
+
+* 使用默认安全的 ML 工具链，减少引入恶意依赖；
+
+* 对数据集版本和完整性进行严格管理；
+
+* 引入红蓝对抗演练，主动发现异常样本。
+
+### 2. 未经授权的训练数据（Unauthorized Data）
+
+**风险描述**
+模型在训练中使用了 **版权受限、未经同意的个人数据或法律禁止的数据**，不仅带来法律诉讼，还会严重损害企业声誉。
+**案例**：某模型因未经许可使用新闻出版物，被出版社起诉，暴露了训练过程的黑箱风险。
+
+**防控措施**
+
+* 强制执行数据合规审查；
+
+* 对来源不明或敏感数据实施自动过滤；
+
+* 建立可追溯的数据使用记录，满足监管审计要求。
+
+### 3. 模型源篡改（Model Source Tampering）
+
+**风险描述**
+攻击者在模型开发或依赖链中嵌入恶意代码或后门，影响模型最终表现。
+**案例**：2024 年爆出的“依赖链投毒”，攻击者在开源依赖中注入恶意脚本，最终被数十个 AI 项目调用。
+
+**防控措施**
+
+* 使用代码签名与依赖验证；
+
+* 建立持续集成/持续交付（CI/CD）安全检测；
+
+* 对模型架构和参数文件进行哈希校验，防止被篡改。
+
+### 4. 过度数据处理（Excessive Data Processing）
+
+**风险描述**
+企业收集、保留或共享的数据超出了政策允许范围，违反合规要求。
+**案例**：某 AI 助手被发现长期保存用户语音输入，未经同意用于广告推荐，引发监管调查。
+
+**防控措施**
+
+* 数据最小化原则：只存储完成任务所需的数据；
+
+* 设置数据过期和自动销毁机制；
+
+* 用户透明度：明确提示数据的收集、用途与存储周期。
+
+### 5. 模型泄露（Model Exfiltration）
+
+**风险描述**
+未经授权的模型权重或文件被窃取，造成知识产权损失或被竞争对手克隆。
+**案例**：曾有研究团队用“API 爬虫”成功复刻一个商业模型的主要能力。
+
+**防控措施**
+
+* 对模型文件实施加密存储；
+
+* 设置访问控制与水印技术；
+
+* 对调用接口施加速率限制与审计。
+
+### 6. 模型部署篡改（Deployment Tampering）
+
+**风险描述**
+攻击者在部署环节修改了服务配置或注入恶意组件。
+**案例**：TorchServe 曝出远程执行漏洞，使得在生产环境运行的 PyTorch 模型面临攻击威胁。
+
+**防控措施**
+
+* 使用安全的 ML 服务工具，及时更新补丁；
+
+* 采用沙箱隔离模型运行环境；
+
+* 部署完整性检测与运行时监控。
+
+### 7. 拒绝机器学习服务（Denial of ML Services）
+
+**风险描述**
+通过资源消耗型攻击（垃圾请求、海绵样本）拖垮模型的计算资源，导致服务不可用。
+**案例**：攻击者反复提交超长上下文输入，迫使 API 响应超时并导致高额账单。
+
+**防控措施**
+
+* 速率限制与负载均衡；
+
+* 对输入长度和复杂度设置阈值；
+
+* 异常调用模式实时告警。
+
+### 8. 模型逆向工程（Model Extraction）
+
+**风险描述**
+攻击者通过大量 API 调用收集输入/输出对，从而训练出功能相似的“山寨模型”。
+
+**防控措施**
+
+* 严格控制接口调用速率；
+
+* 使用水印标识响应内容；
+
+* 对异常调用进行溯源分析。
+
+### 9. 不安全的集成组件（Insecure Integration Components）
+
+**风险描述**
+插件、库或应用本身存在漏洞，被攻击者利用注入恶意数据或代码。
+**案例**：某电商 AI 助手的第三方插件漏洞被利用，攻击者借机操控下单系统。
+
+**防控措施**
+
+* 严格的插件权限控制；
+
+* 定期漏洞扫描和补丁管理；
+
+* 使用可信组件市场。
+
+### 10. 提示词注入（Prompt Injection）
+
+**风险描述**
+攻击者在提示中混入恶意指令，诱导模型泄露信息或绕过限制。
+**案例**：知名“DAN 攻击”（Do Anything Now），让模型无视原有安全约束。
+
+**防控措施**
+
+* 输入验证与上下文隔离；
+
+* 对抗性训练与测试；
+
+* 输出二次验证与清理。
+
+### 11. 模型扰乱（Adversarial Perturbation）
+
+**风险描述**
+通过细微的输入干扰（如贴纸、隐写术），诱导模型错误识别。
+**案例**：在自动驾驶测试中，攻击者在停车标志贴上特殊贴纸，导致模型误判。
+
+**防控措施**
+
+* 引入对抗性训练集；
+
+* 增强多样化数据覆盖；
+
+* 结合多模态验证机制。
+
+### 12. 敏感数据泄露（Sensitive Data Leakage）
+
+**风险描述**
+模型在交互中暴露训练数据或用户查询中包含的敏感信息。
+
+**防控措施**
+
+* 使用隐私增强技术（PETs）；
+
+* 限制模型的记忆能力，避免长时间保存历史上下文；
+
+* 输出敏感性检测与过滤。
+
+### 13. 推断敏感数据（Sensitive Inference）
+
+**风险描述**
+模型基于用户行为或公开数据推断出敏感属性。
+**案例**：模型通过点赞记录推断用户的政治倾向。
+
+**防控措施**
+
+* 用户数据最小化；
+
+* 输出端敏感信息识别与拦截；
+
+* 对敏感属性推断设置合规限制。
+
+### 14. 不安全的模型输出（Unsafe Output）
+
+**风险描述**
+未经验证的模型输出直接使用，导致钓鱼、恶意链接或安全隐患。
+
+**防控措施**
+
+* 输出验证、重写与清理；
+
+* 安全网关对接下游应用；
+
+* 建立多层审核机制。
+
+### 15. 恶意行为 / 过度代理（Malicious Agency）
+
+**风险描述**
+AI Agent 拥有过高权限，可能执行未授权的系统操作。
+**案例**：某实验中的 Agent 被诱导删除系统文件，造成不可逆的破坏。
+
+**防控措施**
+
+* 最小权限原则配置插件；
+
+* 对关键操作进行人工审批；
+
+* 使用沙箱环境隔离风险。
+
+## 三、与 OWASP LLM Top 10 的对比
+
+* **重合点**：提示词注入、无限资源消耗（DoS）、过度代理、敏感数据泄露、不安全输出、数据中毒、不安全组件。
+
+* **独特之处**：
+
+  * 更细化的数据类风险（新增未授权数据、过度处理、推断敏感数据）；
+
+  * 更强调模型原生风险（源篡改、泄露、部署篡改、逆向、扰乱）。
+
+这显示出 SAIF 更注重 **全面性与前瞻性**，尤其是在企业级应用合规场景下。
+
+## 四、启示与反思
+
+1. **AI 安全不再只是“技术问题”**
+   数据合法性、版权、合规性与技术漏洞同等重要。
+
+2. **安全边界被不断拉大**
+   从训练数据到运行插件，从源代码到物理能耗，AI 风险链条日益复杂。
+
+3. **治理需要跨学科合作**
+   技术、法律、伦理必须共同作用，单一视角无法解决。
+
+4. **框架仍需落地**
+   SAIF 多数措施仍停留在原则层面，缺乏足够的实践指南。
+
+## 五、风险分类一览表
+
+![](./assets/图片2.jpeg)
+
+
+
+
+`)
+
+/** 图片根目录（修正相对路径） */
+const baseImageDir = ref<string>('/articles/tool/md3')
+
+/** markdown-it */
+const md = new MarkdownIt({ html: true, linkify: true, breaks: false })
+
+/** 页面标题（首个 H1） */
+const pageTitle = computed(() => {
+  const m = mdRaw.value.match(/^\s*#\s+(.+)$/m)
+  return m ? m[1].trim() : '文档'
+})
+
+/** 重写相对图片路径 */
+function rewriteImagePaths(markdown: string) {
+  return markdown.replace(/!\[([^\]]*)\]\((?!https?:\/\/|\/\/|\/)([^)]+)\)/g, (_m, alt, path) => {
+    const safe = String(path).replace(/^\.\//, '')
+    return `![${alt}](${baseImageDir.value}/${safe})`
+  })
+}
+
+/** 渲染 HTML */
+const html = computed(() => md.render(rewriteImagePaths(mdRaw.value)))
+
+/** 阅读进度条 */
+const progress = ref(0)
+function handleScroll() {
+  const el = document.documentElement
+  const h = el.scrollHeight - el.clientHeight
+  progress.value = h > 0 ? Math.min(100, (el.scrollTop / h) * 100) : 0
+}
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('keydown', onKeydown)
+})
+
+/** 浮动按钮 */
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+const isDark = ref<boolean>(document.documentElement.classList.contains('dark'))
+function toggleDark() {
+  const root = document.documentElement
+  const nowDark = root.classList.toggle('dark')
+  isDark.value = nowDark
+}
+
+/** —— 图片灯箱（事件委托） —— */
+const articleEl = ref<HTMLElement | null>(null)
+const lightbox = ref<{ open: boolean; src: string; alt: string }>({
+  open: false,
+  src: '',
+  alt: ''
+})
+
+function onArticleClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (target && target.tagName === 'IMG') {
+    const img = target as HTMLImageElement
+    // currentSrc 能拿到实际加载的资源（含可能的绝对路径）
+    openLightbox(img.currentSrc || img.src, img.alt || '')
+  }
+}
+
+function openLightbox(src: string, alt = '') {
+  lightbox.value = { open: true, src, alt }
+  // 可选：锁定滚动
+  document.documentElement.style.overflow = 'hidden'
+}
+
+function closeLightbox() {
+  lightbox.value.open = false
+  lightbox.value.src = ''
+  lightbox.value.alt = ''
+  document.documentElement.style.overflow = ''
+}
+
+function onKeydown(ev: KeyboardEvent) {
+  if (!lightbox.value.open) return
+  if (ev.key === 'Escape') closeLightbox()
+}
+</script>
+
+<style scoped>
+
+
+/* 背景网格 */
+.bg-grid-pattern-light {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+}
+.bg-grid-pattern-dark {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+}
+
+/* 入场动画 */
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp   { from { opacity: 0; transform: translateY(20px); }  to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in-down { opacity: 0; animation: fadeInDown .8s ease-out forwards; }
+.animate-fade-in-up   { opacity: 0; animation: fadeInUp   .8s ease-out forwards; }
+
+/* 文章内图片：给放大手势 */
+.prose img { cursor: zoom-in; }
+
+/* 灯箱过渡（可选） */
+.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

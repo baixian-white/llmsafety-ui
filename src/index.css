@@ -1,0 +1,280 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";  /* ← 新增：启用 prose 排版 */
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+
+/* 定义常规模式配色变量 */
+:root {
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+
+  --purple: #5830D6;
+  --blue: #2563eb;
+}
+
+/* 定义暗色模式配色变量 */
+.dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.141 0.005 285.823);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.141 0.005 285.823);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.274 0.006 286.033);
+  --input: oklch(0.274 0.006 286.033);
+  --ring: oklch(0.442 0.017 285.786);
+}
+
+/* 自定义TailwindCSS的颜色 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-purple: var(--purple);
+  --color-blue: var(--blue);
+}
+
+/* 自定义html标签的默认样式 */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* 统一焦点：input/textarea/select/.input-like 都是紫色边框 + 紫色 ring */
+  :is(input, textarea, select, .input-like):focus,
+  :is(input, textarea, select, .input-like):focus-visible {
+    outline: none;
+    /* 用 token 颜色，后续改主题只改 --ring 即可 */
+    @apply ring-2 ring-[var(--ring)] border-[var(--ring)];
+    /* 额外一层 box-shadow，兼容个别浏览器的 ring 表现差异 */
+    box-shadow: 0 0 0 2px var(--ring);
+  }
+
+  /* 悬停时边框轻微提亮（非必要，但让可交互感更好） */
+  :is(input, textarea, select, .input-like):hover {
+    border-color: color-mix(in oklab, var(--ring) 28%, transparent);
+  }
+
+  /* 禁用态：不出现紫色 ring */
+  :is(input, textarea, select, .input-like):disabled {
+    @apply ring-0;
+    box-shadow: none;
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  /* 占位符颜色（浅/深） */
+  :where(input, textarea, .input-like)::placeholder {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+
+  /* 深色模式下，原生下拉菜单的选项面板改为深底亮字 */
+  select option {
+    background-color: #fff;
+    color: #111;
+  }
+
+  .dark select option {
+    background-color: #171720;
+    /* 与面板接近的深底 */
+    color: #EEF0FF;
+  }
+
+  /* Safari 一致性：去默认外观，避免奇怪的蓝色外轮廓 */
+  select,
+  input,
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* 错误提示（全局统一） */
+  .form-err {
+    @apply mt-1 text-xs text-red-600 dark:text-red-400;
+  }
+}
+
+/* 自定义TailwindCSS可用样式 */
+@layer components {
+
+  /* 从蓝到紫的渐变文字特效 */
+  .text-grad {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue to-purple;
+  }
+
+  /* 面板（卡片/表单/地图卡外壳，浅色+暗色自适应） */
+  .panel {
+    @apply p-6 bg-background rounded-md border border-border shadow-md hover:shadow-lg hover:shadow-purple/20 dark:hover:border-purple transition-all duration-300 transform hover:-translate-y-0.5;
+  }
+
+  /* 联系卡片的排版（视觉由 .panel 统一提供） */
+  .contact-card {
+    @apply p-5 flex flex-row gap-4 items-start transition-all hover:-translate-y-0.5 dark:hover:-translate-y-0.5;
+  }
+
+  /* 小图标底片 */
+  .icon-chip {
+    @apply size-9 rounded-xl flex items-center justify-center;
+    background: radial-gradient(60% 60% at 50% 50%, rgba(88, 48, 214, .18), rgba(88, 48, 214, .06));
+    box-shadow: inset 0 0 0 1px rgba(88, 48, 214, .25);
+  }
+
+  /* 链接 */
+  .link {
+    @apply text-primary dark:text-violet-300 hover:underline underline-offset-3
+  }
+  .input-like {
+    @apply w-full h-11 rounded-md text-sm border border-[rgb(var(--border))]/80 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-900 dark:text-gray-100 px-3 outline-none transition;
+  }
+
+  /* 暗色下，下拉菜单面板也为深底亮字 */
+  select.input-like option {
+    background-color: #fff;
+    color: #111;
+  }
+
+  .dark select.input-like option {
+    background-color: #171720;
+    color: #EEF0FF;
+  }
+  /* shadcn 风格主按钮/次按钮（品牌紫） */
+  /* 基础按钮骨架，统一尺寸与排版 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-11 rounded-md px-4 text-sm font-medium transition-all select-none;
+  }
+  /* 主按钮：品牌紫（不再 @apply 自定义类） */
+  .btn-primary {
+    @apply inline-flex border border-border bg-background/60 items-center justify-center gap-2 h-11 rounded-md px-4 text-sm font-medium transition-all select-none shadow-md shadow-gray-300/50 hover:shadow-lg hover:shadow-purple/20 dark:shadow-purple/20 dark:hover:shadow-lg dark:hover:border-purple duration-300 transform hover:-translate-y-0.5;
+  }
+
+  .btn-primary:hover:enabled {
+    filter: brightness(1.08);
+  }
+
+  .btn-primary:active:enabled {
+    filter: brightness(0.96);
+  }
+
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--ring), 0 8px 30px -12px rgba(88, 48, 214, .6);
+  }
+
+  .btn-primary:disabled {
+    cursor: not-allowed;
+    opacity: 1 !important;
+    /* 覆盖 shadcn 的 disabled:opacity-50 */
+    box-shadow: none;
+    background-color: color-mix(in oklab, rgb(var(--primary)) 85%, white);
+    color: rgb(var(--primary-foreground));
+  }
+
+  .dark .btn-primary:disabled {
+    background-color: color-mix(in oklab, rgb(var(--primary)) 70%, #0A0A0F);
+  }
+
+  /* 次按钮（ghost） */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 h-11 rounded-md px-4 text-sm font-medium transition-all select-none border bg-white/60 hover:bg-gray-100/60 dark:bg-white/5 dark:hover:bg-white/10;
+    border-color: rgba(229, 231, 235, .8);
+  }
+
+  .dark .btn-ghost {
+    border-color: rgba(255, 255, 255, .12);
+  }
+
+  /* 渐隐过渡 + 呼吸光点（与首页一致） */
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity .25s ease;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+
+  @keyframes ping-slow {
+    0% {
+      box-shadow: 0 0 0 0 rgba(88, 48, 214, .45)
+    }
+
+    70% {
+      box-shadow: 0 0 0 16px rgba(88, 48, 214, 0)
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgba(88, 48, 214, 0)
+    }
+  }
+
+  .animate-ping-slow {
+    animation: ping-slow 2.2s cubic-bezier(0, 0, .2, 1) infinite;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.light {
+  color-scheme: light;
+}
