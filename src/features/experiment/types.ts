@@ -179,3 +179,41 @@ export interface ExperimentCase {
   defenseTests: DefenseTest[]
   tags: string[]
 }
+
+export type ConversationStage = 'baseline' | 'jailbreak' | 'hallucination' | 'injection' | 'defense'
+export type ConversationVerdict = 'safe' | 'unsafe' | 'hallucinated' | 'injected' | 'blocked'
+export type ConversationTone = 'default' | 'danger' | 'warning' | 'success' | 'info'
+
+export interface ConversationMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  tone: ConversationTone
+}
+
+export interface ConversationRun {
+  stageId: ConversationStage
+  sourceCategory: SourceCaseCategory
+  modelId: string
+  caseId: string
+  caseTitle: string
+  question: string
+  sentPrompt: string
+  defenseEnabled: boolean
+  messages: ConversationMessage[]
+  defenseTrace: DefenseTest[]
+  evidenceCandidates: string[]
+  selectedEvidence: string[]
+  expectedVerdict: ConversationVerdict
+  verdict?: ConversationVerdict
+  completed: boolean
+}
+
+export interface ConversationAnswer {
+  stageId: ConversationStage
+  caseId: string
+  sent: true
+  evidenceCount: number
+  verdict: ConversationVerdict
+  expectedVerdict: ConversationVerdict
+}
