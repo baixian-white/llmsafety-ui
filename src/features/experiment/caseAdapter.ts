@@ -44,7 +44,7 @@ const normalizeDefenseTests = (value: unknown): DefenseTest[] => {
   })
 }
 
-const injectionTags = (prompt: string): string[] => {
+const jailbreakTags = (prompt: string): string[] => {
   const tags = ['原平台案例']
   if (/无需考虑|忽略|无视|不受限制|覆盖.*规则|绕过.*限制/i.test(prompt)) tags.push('指令覆盖')
   if (/扮演|角色|身份|假设你是/i.test(prompt)) tags.push('角色伪装')
@@ -72,7 +72,7 @@ export const adaptJailbreakCases = (rows: unknown, modelId: string): ExperimentC
       prompt,
       baselineResponse: response,
       defenseTests: normalizeDefenseTests(row.tests),
-      tags: injectionTags(prompt),
+      tags: jailbreakTags(prompt),
     }]
   })
 }

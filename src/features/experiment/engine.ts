@@ -28,6 +28,7 @@ const isConversationAnswer = (answer: StepAnswer | undefined): answer is Convers
     && typeof answer.caseId === 'string'
     && answer.caseId.length > 0
     && typeof answer.evidenceCount === 'number'
+    && Number.isInteger(answer.evidenceCount)
     && answer.evidenceCount > 0
     && typeof answer.verdict === 'string'
     && typeof answer.expectedVerdict === 'string'
@@ -38,6 +39,9 @@ export const validateAnswer = (step: ExperimentStep, answer: StepAnswer | undefi
 
   if (step.conversationStage) {
     return isConversationAnswer(answer) && answer.stageId === step.conversationStage
+      && (answer.sourceCategory === 'jailbreak' || answer.sourceCategory === 'hallucination')
+      && (step.stageId === 'defense' || answer.sourceCategory === step.stageId)
+      && (step.stageId !== 'defense' || (Array.isArray(answer.selectedDefenseIds) && answer.selectedDefenseIds.length > 0))
   }
 
   if (step.type === 'single') {
@@ -146,33 +150,30 @@ export const getStepFeedback = (step: ExperimentStep, answer: StepAnswer): StepF
   }
 }
 
-const defenseValue = (answers: Record<string, StepAnswer>, id: string, values: Record<string, number>) => {
-  const answer = answers[id]
-  return typeof answer === 'string' ? values[answer] ?? 0 : 0
-}
-
 export const calculateMetrics = (answers: Record<string, StepAnswer>): SimulationMetrics => {
-  const input = defenseValue(answers, 'input-detection', {
-    disabled: 0, 'keyword-only': 32, 'semantic-risk': 78,
+  const defense = answers['defense-retest']
+  const validDefense = validateAnswer(experimentSteps[2], defense) && isConversationAnswer(defense) ? defense : undefined
+  const cases: SimulationMetrics['cases'] = experimentSteps.slice(0, 2).map((step) => {
+    const answer = answers[step.id]
+    const before = isConversationAnswer(answer) ? answer : undefined
+    const matched = before && validDefense?.caseId === before.caseId && validDefense.sourceCategory === before.sourceCategory
+    return {
+      category: step.stageId as 'jailbreak' | 'hallucination',
+      title: step.stageId === 'jailbreak' ? '越狱攻击测试' : '幻觉风险测试',
+      caseTitle: before?.caseTitle || '尚未完成案例测试',
+      before: before?.expectedVerdict ?? null,
+      after: matched ? validDefense.expectedVerdict : null,
+    }
   })
-  const prompt = defenseValue(answers, 'prompt-protection', {
-    'reveal-rules': 4, 'priority-only': 36, 'instruction-isolation': 82,
-  })
-  const output = defenseValue(answers, 'output-filter', {
-    'basic-filter': 28, 'balanced-filter': 62, 'strict-filter': 88,
-  })
-  const balance = typeof answers['defense-balance'] === 'number' ? answers['defense-balance'] : 45
-  const aggregate = input * 0.34 + prompt * 0.38 + output * 0.28
-  const intensity = clamp((aggregate * 0.72 + balance * 0.28), 0, 100)
-  const strictness = clamp(output * 0.46 + balance * 0.54, 0, 100)
-
+  const tested = cases.find((item) => item.after !== null)
+  const effective = tested?.after === 'blocked' || tested?.after === 'safe'
   return {
-    jailbreakSuccessRate: round(clamp(78 - intensity * 0.67, 8, 82)),
-    injectionSuccessRate: round(clamp(72 - (input * 0.24 + prompt * 0.51 + balance * 0.12), 7, 78)),
-    hallucinationRate: round(clamp(36 - (output * 0.1 + balance * 0.08), 16, 38)),
-    harmfulPassRate: round(clamp(68 - (input * 0.16 + output * 0.45 + balance * 0.12), 5, 74)),
-    falsePositiveRate: round(clamp(3 + strictness * 0.17, 3, 24)),
-    usabilityScore: round(clamp(96 - strictness * 0.24, 68, 96)),
+    cases,
+    enabledLayerCount: tested ? validDefense?.selectedDefenseIds.length ?? 0 : 0,
+    conclusion: tested ? effective ? '本案例防御有效' : '本案例仍存在风险' : '待完成防御复测',
+    description: tested
+      ? effective ? '所选案例的风险被阻断或事实错误得到纠正。该结果仅对应本次案例和防御组合。' : '已启用的防御层未能消除本案例风险，可以调整组合后再次复测。'
+      : '选择已测案例、开启防御并保存证据与判定后，在此查看对照结果。',
   }
 }
 
@@ -189,7 +190,7 @@ export const calculateScore = (
     rawTotal += score
   }
 
-  const hintPenalty = round(Math.min(6, Object.values(hints).reduce((sum, count) => sum + Math.min(count, 2) * 0.75, 0)), 2)
+  const hintPenalty = round(Math.min(6, experimentSteps.reduce((sum, step) => sum + Math.min(Math.max(hints[step.id] ?? 0, 0), 2) * 0.75, 0)), 2)
   const stageScores = experimentStages.map((stage) => {
     const earned = experimentSteps
       .filter((step) => step.stageId === stage.id)
@@ -210,7 +211,7 @@ export const calculateScore = (
 const abilityMeta: Record<AbilityId, { label: string; description: string }> = {
   'risk-identification': { label: '风险识别', description: '识别关键资产、风险类型与影响范围' },
   'attack-design': { label: '攻击设计', description: '构造合规、可复现的安全测试方案' },
-  'response-analysis': { label: '响应分析', description: '依据证据判断越狱、幻觉与注入结果' },
+  'response-analysis': { label: '响应分析', description: '依据证据判断越狱、幻觉与防御结果' },
   'defense-configuration': { label: '防御配置', description: '组合输入、指令和输出层防御措施' },
   'comprehensive-decision': { label: '综合决策', description: '权衡风险、可用性并形成测试结论' },
 }
@@ -242,7 +243,7 @@ export const calculateAbilityProfile = (
 const createSessionId = () => `SIM-${Date.now().toString(36).toUpperCase()}`
 
 export const createInitialState = (): ExperimentState => ({
-  version: 1,
+  version: 2,
   sessionId: createSessionId(),
   status: 'not-started',
   startedAt: null,
@@ -252,11 +253,10 @@ export const createInitialState = (): ExperimentState => ({
   hints: {},
   completedStepIds: [],
   feedback: {},
-  pretestAnswers: {},
-  pretestScore: null,
   guideEnabled: true,
   elapsedSeconds: 0,
   conversations: {},
+  defenseConfiguration: { sourceStage: 'jailbreak', layerIds: [0, 1, 2] },
 })
 
 export const getLearningRecommendations = (profile: AbilityProfile): string[] => {
@@ -283,12 +283,13 @@ export const buildDemoAnswers = (): Record<string, StepAnswer> => {
         ? 'hallucinated'
         : step.conversationStage === 'defense'
           ? 'blocked'
-          : step.conversationStage === 'injection'
-            ? 'injected'
-            : 'unsafe'
+          : 'unsafe'
       answers[step.id] = {
         stageId: step.conversationStage,
-        caseId: `demo-${step.conversationStage}`,
+        sourceCategory: step.conversationStage === 'hallucination' ? 'hallucination' : 'jailbreak',
+        caseId: step.conversationStage === 'hallucination' ? 'demo-hallucination' : 'demo-jailbreak',
+        caseTitle: step.conversationStage === 'hallucination' ? '事实核查演示案例' : '安全边界演示案例',
+        selectedDefenseIds: step.conversationStage === 'defense' ? [0, 1, 2] : [],
         sent: true,
         evidenceCount: 2,
         verdict,
@@ -304,7 +305,7 @@ export const buildDemoAnswers = (): Record<string, StepAnswer> => {
     } else if (step.type === 'range') {
       answers[step.id] = Math.round(((step.idealMin ?? step.min ?? 0) + (step.idealMax ?? step.max ?? 100)) / 2)
     } else {
-      answers[step.id] = '加强输入层语义风险识别与指令隔离，优化输出过滤阈值，并使用相同越狱、幻觉和注入样本完成复测与残余风险确认。'
+      answers[step.id] = '对照相同的越狱和幻觉案例，比较各防御层的检测记录与最终回答。'
     }
   }
   return answers

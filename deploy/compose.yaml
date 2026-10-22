@@ -1,0 +1,24 @@
+name: llmsafety-ui
+
+services:
+  web:
+    image: ${LLMSAFETY_IMAGE:?Set LLMSAFETY_IMAGE to an immutable release image}
+    container_name: llmsafety-ui
+    restart: unless-stopped
+    ports:
+      - "${LLMSAFETY_BIND_IP:-0.0.0.0}:${LLMSAFETY_PORT:-18200}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+    mem_limit: 128m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

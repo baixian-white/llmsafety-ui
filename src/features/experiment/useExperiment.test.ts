@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createExperimentStore, EXPERIMENT_STORAGE_KEY } from './useExperiment'
 import { createConversationRun } from './conversationEngine'
-import type { ExperimentCase } from './types'
+import { jailbreakCase, hallucinationCase } from './testFixtures'
+import type { ConversationStage } from './types'
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>()
@@ -13,251 +14,188 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string) { this.values.set(key, value) }
 }
 
-describe('experiment store persistence', () => {
+type Store = ReturnType<typeof createExperimentStore>
+const assess = (store: Store, stage: ConversationStage) => {
+  const source = store.state.value.defenseConfiguration.sourceStage
+  const data = stage === 'hallucination' || (stage === 'defense' && source === 'hallucination') ? hallucinationCase : jailbreakCase
+  const run = createConversationRun(data, { stageId: stage, sentPrompt: data.prompt, defenseEnabled: stage === 'defense', selectedDefenseIds: store.state.value.defenseConfiguration.layerIds })
+  store.setConversationRun(stage, run)
+  store.updateConversationAssessment(stage, [run.evidenceCandidates[0]], run.expectedVerdict)
+  return run
+}
+const completeAttacks = (store: Store) => {
+  assess(store, 'jailbreak')
+  expect(store.completeCurrentStep()).toBe(true)
+  assess(store, 'hallucination')
+  expect(store.completeCurrentStep()).toBe(true)
+}
+
+describe('student progress and defense configuration', () => {
   let storage: Storage
+  beforeEach(() => { storage = new MemoryStorage() })
 
-  beforeEach(() => {
-    storage = new MemoryStorage()
-  })
-
-  it('starts at the first operation and persists a valid answer', () => {
+  it('starts directly at jailbreak and blocks completion and navigation before assessment', () => {
     const store = createExperimentStore(storage)
-
-    expect(store.currentStep.value.number).toBe(1)
-    store.startExperiment()
-    store.setAnswer('deepseek-r1')
-    expect(store.canCompleteCurrentStep.value).toBe(true)
-    store.completeCurrentStep()
-
-    const restored = createExperimentStore(storage)
-    expect(restored.state.value.answers['model-profile']).toBe('deepseek-r1')
-    expect(restored.state.value.currentStepIndex).toBe(1)
-    expect(restored.state.value.completedStepIds).toContain('model-profile')
-  })
-
-  it('does not advance when the current operation is incomplete', () => {
-    const store = createExperimentStore(storage)
-    store.startExperiment()
-
+    expect(store.currentStage.value.id).toBe('jailbreak')
+    expect(store.goToStep(1)).toBe(false)
     expect(store.completeCurrentStep()).toBe(false)
-    expect(store.state.value.currentStepIndex).toBe(0)
-  })
-
-  it('records hint use and can reopen the guide', () => {
-    const store = createExperimentStore(storage)
-    store.useHint()
-    store.setGuideEnabled(false)
-    store.setGuideEnabled(true)
-
-    expect(store.state.value.hints['model-profile']).toBe(1)
-    expect(store.state.value.guideEnabled).toBe(true)
-  })
-
-  it('resets persisted progress', () => {
-    const store = createExperimentStore(storage)
-    store.startExperiment()
-    store.setAnswer('deepseek-r1')
-    store.completeCurrentStep()
-    store.resetExperiment()
-
-    expect(store.state.value.answers).toEqual({})
-    expect(store.state.value.currentStepIndex).toBe(0)
-    expect(store.state.value.status).toBe('not-started')
-  })
-
-  it('recovers from invalid saved JSON without crashing', () => {
-    storage.setItem(EXPERIMENT_STORAGE_KEY, '{invalid json')
-    const store = createExperimentStore(storage)
-
-    expect(store.state.value.currentStepIndex).toBe(0)
-    expect(store.restoreWarning.value).toContain('无法恢复')
-  })
-
-  it('rejects a snapshot from an unsupported version', () => {
-    storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify({ version: 99, answers: {} }))
-    const store = createExperimentStore(storage)
-
-    expect(store.state.value.version).toBe(1)
-    expect(store.restoreWarning.value).toContain('版本')
-  })
-
-  it('persists a completed chat run and clears it on reset', () => {
-    const store = createExperimentStore(storage)
-    const caseData: ExperimentCase = {
-      id: 'jailbreak-qwen-max-1',
-      category: 'jailbreak',
-      modelId: 'qwen-max',
-      title: '原平台越狱案例',
-      question: '原始问题',
-      prompt: '原始提示词',
-      baselineResponse: '原始模型回答',
-      defenseTests: [],
-      tags: ['原平台案例'],
-    }
-    const run = createConversationRun(caseData, {
-      stageId: 'jailbreak',
-      sentPrompt: '学生编辑后的提示词',
-      defenseEnabled: false,
-    })
-
+    const run = createConversationRun(jailbreakCase, { stageId: 'jailbreak', sentPrompt: jailbreakCase.prompt, defenseEnabled: false })
     store.setConversationRun('jailbreak', run)
-    store.updateConversationAssessment('jailbreak', [run.evidenceCandidates[0]], 'unsafe')
+    expect(store.completeCurrentStep()).toBe(false)
+    store.updateConversationAssessment('jailbreak', ['not a candidate'], 'unsafe')
+    expect(store.completeCurrentStep()).toBe(false)
+  })
 
+  it('finishes after two attacks and one configured defense, and survives reload', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    expect(store.currentStage.value.id).toBe('defense')
+    store.setDefenseConfiguration({ sourceStage: 'jailbreak', layerIds: [1] })
+    assess(store, 'defense')
+    expect(store.completeCurrentStep()).toBe(true)
+    expect(store.state.value.status).toBe('completed')
+    expect(store.progress.value).toBe(100)
+    expect(store.score.value.total).toBe(100)
     const restored = createExperimentStore(storage)
-    expect(restored.state.value.conversations.jailbreak?.sentPrompt).toBe('学生编辑后的提示词')
-    expect(restored.state.value.answers['jailbreak-verdict']).toMatchObject({
-      sent: true,
-      evidenceCount: 1,
-      verdict: 'unsafe',
-    })
-
-    restored.resetExperiment()
-    expect(restored.state.value.conversations).toEqual({})
+    expect(restored.state.value.status).toBe('completed')
+    expect(restored.state.value.defenseConfiguration.layerIds).toEqual([1])
+    expect(restored.state.value.conversations.defense?.selectedDefenseIds).toEqual([1])
+    expect(restored.score.value.total).toBe(100)
   })
 
-  it('requires a new assessment after the same conversation stage is sent again', () => {
+  it('allows either previously tested case to be selected for defense', () => {
     const store = createExperimentStore(storage)
-    const caseData: ExperimentCase = {
-      id: 'jailbreak-qwen-max-1',
-      category: 'jailbreak',
-      modelId: 'qwen-max',
-      title: '原平台越狱案例',
-      question: '原始问题',
-      prompt: '原始提示词',
-      baselineResponse: '原始模型回答',
-      defenseTests: [],
-      tags: ['原平台案例'],
-    }
-    const firstRun = createConversationRun(caseData, {
-      stageId: 'jailbreak',
-      sentPrompt: '第一次发送',
-      defenseEnabled: false,
-    })
-    store.setConversationRun('jailbreak', firstRun)
-    store.updateConversationAssessment('jailbreak', [firstRun.evidenceCandidates[0]], 'unsafe')
-    store.state.value.completedStepIds.push('jailbreak-verdict')
-    store.state.value.feedback['jailbreak-verdict'] = {
-      severity: 'success',
-      title: '已完成',
-      message: '旧一轮对话已经完成判定。',
-      knowledge: '旧知识反馈',
-      earnedPoints: 4,
-      maxPoints: 4,
-    }
-    expect(store.state.value.answers['jailbreak-verdict']).toBeDefined()
-
-    const secondRun = createConversationRun(caseData, {
-      stageId: 'jailbreak',
-      sentPrompt: '第二次发送',
-      defenseEnabled: false,
-    })
-    store.setConversationRun('jailbreak', secondRun)
-
-    expect(store.state.value.answers['jailbreak-verdict']).toBeUndefined()
-    expect(store.state.value.completedStepIds).not.toContain('jailbreak-verdict')
-    expect(store.state.value.feedback['jailbreak-verdict']).toBeUndefined()
-    expect(store.state.value.conversations.jailbreak?.sentPrompt).toBe('第二次发送')
+    completeAttacks(store)
+    store.setDefenseConfiguration({ sourceStage: 'hallucination', layerIds: [0] })
+    assess(store, 'defense')
+    expect(store.metrics.value.cases[1].after).toBe('safe')
+    expect(store.metrics.value.cases[0].after).toBeNull()
+    expect(store.completeCurrentStep()).toBe(true)
+    expect(createExperimentStore(storage).state.value.defenseConfiguration.sourceStage).toBe('hallucination')
   })
 
-  it('invalidates a saved defense retest when an upstream attack conversation changes', () => {
+  it('permits an all-off comparison but requires an enabled layer to finish', () => {
     const store = createExperimentStore(storage)
-    const caseData: ExperimentCase = {
-      id: 'jailbreak-qwen-max-1',
-      category: 'jailbreak',
-      modelId: 'qwen-max',
-      title: '原平台注入案例',
-      question: '原始问题',
-      prompt: '原始提示词',
-      baselineResponse: '原始模型回答',
-      defenseTests: [],
-      tags: ['原平台案例', '指令覆盖'],
-    }
-    const attackRun = createConversationRun(caseData, {
-      stageId: 'injection',
-      sentPrompt: '攻击提示词一',
-      defenseEnabled: false,
-    })
-    store.setConversationRun('injection', attackRun)
-    const defenseRun = createConversationRun(caseData, {
-      stageId: 'defense',
-      sentPrompt: attackRun.sentPrompt,
-      defenseEnabled: true,
-    })
-    store.setConversationRun('defense', defenseRun)
-    store.updateConversationAssessment('defense', [defenseRun.evidenceCandidates[0]], 'unsafe')
-    expect(store.state.value.answers['defense-retest']).toBeDefined()
+    completeAttacks(store)
+    store.setDefenseConfiguration({ sourceStage: 'jailbreak', layerIds: [] })
+    assess(store, 'defense')
+    expect(store.state.value.conversations.defense?.defenseEnabled).toBe(false)
+    expect(store.completeCurrentStep()).toBe(false)
+    expect(store.state.value.status).toBe('in-progress')
+  })
 
-    const changedAttackRun = createConversationRun(caseData, {
-      stageId: 'injection',
-      sentPrompt: '攻击提示词二',
-      defenseEnabled: false,
-    })
-    store.setConversationRun('injection', changedAttackRun)
+  it('invalidates completed defense results when a layer changes, while keeping both attacks', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    assess(store, 'defense')
+    store.completeCurrentStep()
+    store.setDefenseConfiguration({ sourceStage: 'jailbreak', layerIds: [0] })
+    expect(store.state.value.status).toBe('in-progress')
+    expect(store.state.value.completedAt).toBeNull()
+    expect(store.state.value.currentStepIndex).toBe(2)
+    expect(store.state.value.completedStepIds).toEqual(['jailbreak-verdict', 'hallucination-run'])
+    expect(store.state.value.answers['defense-retest']).toBeUndefined()
+    expect(store.state.value.feedback['defense-retest']).toBeUndefined()
+    expect(store.state.value.conversations.defense).toBeUndefined()
+    expect(store.completeCurrentStep()).toBe(false)
+    expect(createExperimentStore(storage).state.value.defenseConfiguration.layerIds).toEqual([0])
+  })
 
+  it('invalidates defense evidence when switching the source case', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    assess(store, 'defense')
+    store.setDefenseConfiguration({ sourceStage: 'hallucination', layerIds: [0, 1, 2] })
     expect(store.state.value.conversations.defense).toBeUndefined()
     expect(store.state.value.answers['defense-retest']).toBeUndefined()
   })
 
-  it('drops a stale defense retest while restoring persisted browser state', () => {
+  it('invalidates attack and defense results when an attack is rerun', () => {
     const store = createExperimentStore(storage)
-    const caseData: ExperimentCase = {
-      id: 'jailbreak-qwen-max-1',
-      category: 'jailbreak',
-      modelId: 'qwen-max',
-      title: '原平台注入案例',
-      question: '原始问题',
-      prompt: '原始提示词',
-      baselineResponse: '原始模型回答',
-      defenseTests: [],
-      tags: ['原平台案例', '指令覆盖'],
-    }
-    const attackRun = createConversationRun(caseData, {
-      stageId: 'injection',
-      sentPrompt: '攻击提示词一',
-      defenseEnabled: false,
-    })
-    store.setConversationRun('injection', attackRun)
-    store.updateConversationAssessment('injection', [attackRun.evidenceCandidates[0]], 'injected')
-    const defenseRun = createConversationRun(caseData, {
-      stageId: 'defense',
-      sentPrompt: attackRun.sentPrompt,
-      defenseEnabled: true,
-    })
-    store.setConversationRun('defense', defenseRun)
-    store.updateConversationAssessment('defense', [defenseRun.evidenceCandidates[0]], 'unsafe')
+    completeAttacks(store)
+    assess(store, 'defense')
+    store.completeCurrentStep()
+    const newRun = createConversationRun(jailbreakCase, { stageId: 'jailbreak', sentPrompt: 'changed prompt', defenseEnabled: false })
+    store.setConversationRun('jailbreak', newRun)
+    expect(store.state.value.currentStepIndex).toBe(0)
+    expect(store.state.value.answers['jailbreak-verdict']).toBeUndefined()
+    expect(store.state.value.answers['defense-retest']).toBeUndefined()
+    expect(store.state.value.conversations.defense).toBeUndefined()
+    expect(store.state.value.status).toBe('in-progress')
+    expect(store.canCompleteCurrentStep.value).toBe(false)
+  })
 
-    const stale = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY) || '{}')
-    stale.conversations.injection.sentPrompt = '后来修改的攻击提示词'
-    stale.completedStepIds.push('defense-retest')
-    stale.feedback['defense-retest'] = {
-      severity: 'success',
-      title: '已完成',
-      message: '旧防御复测已经完成。',
-      knowledge: '旧知识反馈',
-      earnedPoints: 3.3,
-      maxPoints: 3.3,
-    }
-    stale.status = 'completed'
-    stale.completedAt = '2026-10-14T12:00:00.000Z'
-    stale.currentStepIndex = 31
+  it('rejects a defense run that does not match the source or switches', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    const wrong = createConversationRun(jailbreakCase, { stageId: 'defense', sentPrompt: 'wrong prompt', defenseEnabled: true })
+    store.setConversationRun('defense', wrong)
+    expect(store.state.value.conversations.defense).toBeUndefined()
+    store.setConversationRun('defense', { ...wrong, sentPrompt: jailbreakCase.prompt, selectedDefenseIds: [0] })
+    expect(store.state.value.conversations.defense).toBeUndefined()
+  })
+
+  it('drops stale defense records on restore and persists the repair', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    assess(store, 'defense')
+    store.completeCurrentStep()
+    const stale = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY)!)
+    stale.conversations.jailbreak.sentPrompt = 'changed after defense'
     storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify(stale))
-
     const restored = createExperimentStore(storage)
     expect(restored.state.value.conversations.defense).toBeUndefined()
     expect(restored.state.value.answers['defense-retest']).toBeUndefined()
-    expect(restored.state.value.completedStepIds).not.toContain('defense-retest')
-    expect(restored.state.value.feedback['defense-retest']).toBeUndefined()
+    expect(restored.state.value.currentStepIndex).toBe(2)
     expect(restored.state.value.status).toBe('in-progress')
-    expect(restored.state.value.completedAt).toBeNull()
-    expect(restored.state.value.currentStepIndex).toBe(25)
+    expect(JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY)!).conversations.defense).toBeUndefined()
+  })
 
-    const normalized = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY) || '{}')
-    expect(normalized.conversations.defense).toBeUndefined()
-    expect(normalized.answers['defense-retest']).toBeUndefined()
-    expect(normalized.completedStepIds).not.toContain('defense-retest')
-    expect(normalized.feedback['defense-retest']).toBeUndefined()
-    expect(normalized.status).toBe('in-progress')
-    expect(normalized.completedAt).toBeNull()
-    expect(normalized.currentStepIndex).toBe(25)
+  it('migrates legacy progress by retained task IDs, never by the obsolete numeric index', () => {
+    const store = createExperimentStore(storage)
+    completeAttacks(store)
+    assess(store, 'defense')
+    const legacy = JSON.parse(storage.getItem(EXPERIMENT_STORAGE_KEY)!)
+    legacy.version = 1
+    legacy.currentStepIndex = 31
+    legacy.status = 'completed'
+    legacy.completedStepIds.push('model-profile', 'injection-run', 'defense-retest', 'final-conclusion')
+    legacy.answers['injection-run'] = 'old injection answer'
+    legacy.hints['injection-run'] = 20
+    legacy.conversations.injection = { ...legacy.conversations.jailbreak, stageId: 'injection' }
+    delete legacy.defenseConfiguration
+    for (const run of Object.values(legacy.conversations) as Array<Record<string, unknown>>) delete run.selectedDefenseIds
+    storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify(legacy))
+    const restored = createExperimentStore(storage)
+    expect(restored.state.value.version).toBe(2)
+    expect(restored.currentStep.value.id).toBe('defense-retest')
+    expect(restored.state.value.completedStepIds).toEqual(['jailbreak-verdict', 'hallucination-run'])
+    expect(restored.state.value.answers['injection-run']).toBeUndefined()
+    expect(Object.keys(restored.state.value.conversations)).toEqual(['jailbreak', 'hallucination'])
+    expect(restored.score.value.hintPenalty).toBe(0)
+    expect(restored.score.value.total).toBe(60)
+    expect(restored.state.value.status).toBe('in-progress')
+    expect(restored.restoreWarning.value).toContain('精简')
+  })
+
+  it('returns legacy students without attack evidence to the first required test', () => {
+    storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify({ version: 1, sessionId: 'old', currentStepIndex: 18, status: 'in-progress', answers: { 'model-profile': 'qwen-max' }, completedStepIds: ['model-profile'], conversations: {} }))
+    const store = createExperimentStore(storage)
+    expect(store.currentStep.value.id).toBe('jailbreak-verdict')
+    expect(store.progress.value).toBe(0)
+  })
+
+  it('persists hints, resets records and recovers invalid snapshots', () => {
+    const store = createExperimentStore(storage)
+    store.useHint()
+    store.setGuideEnabled(false)
+    expect(createExperimentStore(storage).state.value.hints['jailbreak-verdict']).toBe(1)
+    store.resetExperiment()
+    expect(store.state.value.answers).toEqual({})
+    expect(store.state.value.status).toBe('not-started')
+    storage.setItem(EXPERIMENT_STORAGE_KEY, '{invalid')
+    expect(createExperimentStore(storage).restoreWarning.value).toContain('无法恢复')
+    storage.setItem(EXPERIMENT_STORAGE_KEY, JSON.stringify({ version: 99 }))
+    expect(createExperimentStore(storage).restoreWarning.value).toContain('版本')
   })
 })

@@ -1,138 +1,78 @@
 import { describe, expect, it } from 'vitest'
 import { experimentStages, experimentSteps } from './catalog'
-import {
-  calculateAbilityProfile,
-  calculateMetrics,
-  calculateScore,
-  createInitialState,
-  getStepFeedback,
-  validateAnswer,
-} from './engine'
-import type { StepAnswer } from './types'
+import { buildDemoAnswers, calculateAbilityProfile, calculateMetrics, calculateScore, createInitialState, getStepFeedback, validateAnswer } from './engine'
+import type { ConversationAnswer } from './types'
 
-describe('experiment catalog', () => {
-  it('contains seven stages and exactly thirty-two meaningful operations', () => {
-    expect(experimentStages).toHaveLength(7)
-    expect(experimentSteps).toHaveLength(32)
+describe('three-stage student workflow', () => {
+  it('requires only two attack tests and one defense retest, totaling 100 points', () => {
+    expect(experimentStages.map(stage => stage.id)).toEqual(['jailbreak', 'hallucination', 'defense'])
+    expect(experimentSteps.map(step => step.conversationStage)).toEqual(['jailbreak', 'hallucination', 'defense'])
+    expect(experimentSteps.map(step => step.number)).toEqual([1, 2, 3])
+    expect(experimentSteps.reduce((sum, step) => sum + step.weight, 0)).toBe(100)
     expect(experimentStages.reduce((sum, stage) => sum + stage.maxScore, 0)).toBe(100)
-
-    const counts = experimentStages.map(
-      (stage) => experimentSteps.filter((step) => step.stageId === stage.id).length,
-    )
-    expect(counts).toEqual([4, 4, 5, 5, 4, 6, 4])
-  })
-})
-
-describe('answer validation and feedback', () => {
-  const modelStep = () => experimentSteps.find((step) => step.id === 'model-profile')!
-
-  it('rejects empty answers and accepts an available option', () => {
-    expect(validateAnswer(modelStep(), '')).toBe(false)
-    expect(validateAnswer(modelStep(), 'deepseek-r1')).toBe(true)
-    expect(validateAnswer(modelStep(), 'unknown-model')).toBe(false)
   })
 
-  it('returns different feedback for different choices', () => {
-    const balanced = getStepFeedback(modelStep(), 'deepseek-r1')
-    const open = getStepFeedback(modelStep(), 'ernie-turbo')
-
-    expect(balanced.message).not.toBe(open.message)
-    expect(balanced.earnedPoints).toBeGreaterThan(open.earnedPoints)
+  it('requires a sent case with evidence and the matching stage', () => {
+    const answer = buildDemoAnswers()['jailbreak-verdict'] as ConversationAnswer
+    expect(validateAnswer(experimentSteps[0], answer)).toBe(true)
+    expect(validateAnswer(experimentSteps[0], '')).toBe(false)
+    expect(validateAnswer(experimentSteps[0], { ...answer, evidenceCount: 0 })).toBe(false)
+    expect(validateAnswer(experimentSteps[1], answer)).toBe(false)
   })
 
-  it('requires a sent conversation, evidence and verdict for chat operations', () => {
-    const chatStep = experimentSteps.find((step) => step.id === 'jailbreak-verdict')!
-    const completeAnswer = {
-      stageId: 'jailbreak' as const,
-      caseId: 'jailbreak-qwen-max-1',
-      sent: true as const,
-      evidenceCount: 1,
-      verdict: 'unsafe' as const,
-      expectedVerdict: 'unsafe' as const,
-    }
-
-    expect(chatStep.conversationStage).toBe('jailbreak')
-    expect(validateAnswer(chatStep, 'success')).toBe(false)
-    expect(validateAnswer(chatStep, { ...completeAnswer, evidenceCount: 0 })).toBe(false)
-    expect(validateAnswer(chatStep, completeAnswer)).toBe(true)
-    expect(getStepFeedback(chatStep, completeAnswer).earnedPoints).toBe(chatStep.weight)
-    expect(getStepFeedback(chatStep, { ...completeAnswer, verdict: 'safe' }).earnedPoints)
-      .toBeLessThan(chatStep.weight)
-  })
-})
-
-describe('deterministic defense simulation', () => {
-  const weakDefense: Record<string, StepAnswer> = {
-    'input-detection': 'keyword-only',
-    'prompt-protection': 'priority-only',
-    'output-filter': 'basic-filter',
-    'defense-balance': 35,
-  }
-
-  const strongDefense: Record<string, StepAnswer> = {
-    'input-detection': 'semantic-risk',
-    'prompt-protection': 'instruction-isolation',
-    'output-filter': 'strict-filter',
-    'defense-balance': 82,
-  }
-
-  it('reduces attack success while exposing an availability trade-off', () => {
-    const weak = calculateMetrics(weakDefense)
-    const strong = calculateMetrics(strongDefense)
-
-    expect(weak.jailbreakSuccessRate).toBeGreaterThan(strong.jailbreakSuccessRate)
-    expect(weak.injectionSuccessRate).toBeGreaterThan(strong.injectionSuccessRate)
-    expect(weak.harmfulPassRate).toBeGreaterThan(strong.harmfulPassRate)
-    expect(strong.falsePositiveRate).toBeGreaterThan(weak.falsePositiveRate)
-    expect(strong.usabilityScore).toBeLessThan(weak.usabilityScore)
+  it('requires at least one enabled defense layer to finish the defense task', () => {
+    const answer = buildDemoAnswers()['defense-retest'] as ConversationAnswer
+    expect(validateAnswer(experimentSteps[2], answer)).toBe(true)
+    expect(validateAnswer(experimentSteps[2], { ...answer, selectedDefenseIds: [] })).toBe(false)
   })
 
-  it('returns the same result for the same answer set', () => {
-    expect(calculateMetrics(strongDefense)).toEqual(calculateMetrics(strongDefense))
-  })
-})
-
-describe('score and ability profile', () => {
-  it('starts with an empty traceable state', () => {
-    const state = createInitialState()
-
-    expect(state.version).toBe(1)
-    expect(state.currentStepIndex).toBe(0)
-    expect(state.answers).toEqual({})
-    expect(state.status).toBe('not-started')
+  it('scores evidence-based judgments, including accurately identified defense failures', () => {
+    const answer = buildDemoAnswers()['defense-retest'] as ConversationAnswer
+    expect(getStepFeedback(experimentSteps[2], { ...answer, verdict: 'unsafe', expectedVerdict: 'unsafe' }).earnedPoints).toBe(40)
+    expect(getStepFeedback(experimentSteps[2], { ...answer, verdict: 'unsafe' }).earnedPoints).toBeLessThan(40)
   })
 
-  it('awards points for completed answers and applies a capped hint penalty', () => {
-    const answers: Record<string, StepAnswer> = {
-      'model-profile': 'deepseek-r1',
-      'critical-assets': ['system-prompt', 'private-data'],
-      'test-scope': ['jailbreak', 'hallucination', 'injection'],
-    }
-    const withoutHint = calculateScore(answers, {})
-    const withHints = calculateScore(answers, {
-      'model-profile': 10,
-      'critical-assets': 10,
-      'test-scope': 10,
-    })
-
-    expect(withoutHint.total).toBeGreaterThan(0)
-    expect(withHints.total).toBeLessThan(withoutHint.total)
-    expect(withoutHint.total - withHints.total).toBeLessThanOrEqual(6)
-  })
-
-  it('produces bounded ability dimensions from step scores', () => {
-    const answers: Record<string, StepAnswer> = Object.fromEntries(
-      experimentSteps
-        .filter((step) => step.options?.length)
-        .map((step) => [step.id, step.options![0].value]),
-    )
+  it('ignores hints and answers from removed stages', () => {
+    const answers = buildDemoAnswers()
+    const score = calculateScore(answers, { 'injection-run': 10, 'model-profile': 2 })
+    expect(score.total).toBe(100)
+    expect(score.completedSteps).toBe(3)
+    expect(score.stageScores).toHaveLength(3)
+    expect(calculateScore(answers, { 'jailbreak-verdict': 10 }).total).toBe(98.5)
     const profile = calculateAbilityProfile(answers, {})
-
     expect(profile).toHaveLength(5)
-    for (const dimension of profile) {
-      expect(dimension.score).toBeGreaterThanOrEqual(0)
-      expect(dimension.score).toBeLessThanOrEqual(100)
-      expect(dimension.stepIds.length).toBeGreaterThan(0)
-    }
+    expect(profile.every(item => item.score === 100 && item.stepIds.length > 0)).toBe(true)
+  })
+
+  it('creates a fresh configurable state', () => {
+    const state = createInitialState()
+    expect(state.version).toBe(2)
+    expect(state.status).toBe('not-started')
+    expect(state.defenseConfiguration).toEqual({ sourceStage: 'jailbreak', layerIds: [0, 1, 2] })
+  })
+})
+
+describe('case comparison results', () => {
+  it('does not assign results to tests that have not run', () => {
+    const metrics = calculateMetrics({})
+    expect(metrics.cases.every(item => item.before === null && item.after === null)).toBe(true)
+    expect(metrics.conclusion).toBe('待完成防御复测')
+  })
+
+  it('shows a defense result only for the matching case, leaving the other risk untested', () => {
+    const metrics = calculateMetrics(buildDemoAnswers())
+    expect(metrics.cases[0]).toMatchObject({ before: 'unsafe', after: 'blocked' })
+    expect(metrics.cases[1]).toMatchObject({ before: 'hallucinated', after: null })
+    expect(metrics.enabledLayerCount).toBe(3)
+    expect(metrics.conclusion).toBe('本案例防御有效')
+  })
+
+  it('reports remaining risk and rejects a comparison against a different case', () => {
+    const answers = buildDemoAnswers()
+    const defense = answers['defense-retest'] as ConversationAnswer
+    answers['defense-retest'] = { ...defense, verdict: 'unsafe', expectedVerdict: 'unsafe' }
+    expect(calculateMetrics(answers).conclusion).toBe('本案例仍存在风险')
+    answers['defense-retest'] = { ...defense, caseId: 'different-case' }
+    expect(calculateMetrics(answers).cases.every(item => item.after === null)).toBe(true)
   })
 })

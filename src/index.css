@@ -341,6 +341,15 @@ html.light {
   .report-heading {
     @apply flex items-center gap-2 text-lg font-black text-slate-900 dark:text-white;
   }
+
+  .report-label {
+    @apply text-sm font-bold text-slate-800 dark:text-slate-100;
+  }
+
+  .report-transcript {
+    @apply whitespace-pre-wrap break-words text-sm leading-7 text-slate-600 dark:text-slate-300;
+    overflow-wrap: anywhere;
+  }
 }
 
 .experiment-orb {
@@ -457,8 +466,41 @@ html.light {
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    overflow: visible !important;
+    font-size: 10pt;
   }
-  .print-report section {
+  .print-report, .print-report * {
+    background: transparent !important;
+    color: #111827 !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+  .print-report svg text {
+    fill: #111827 !important;
+  }
+  .print-report > header, .print-report .report-body {
+    padding: 5mm 0 !important;
+  }
+  .print-report section, .print-report .report-record {
+    break-inside: auto;
+  }
+  .print-report .report-keep-together {
     break-inside: avoid;
+  }
+  .print-report h3, .print-report h4, .print-report .report-label {
+    break-after: avoid;
+  }
+  .print-report .report-response-grid {
+    display: block;
+  }
+  .print-report .report-response-grid > div + div {
+    margin-top: 4mm;
+  }
+  .print-report .report-transcript, .print-report li {
+    orphans: 3;
+    widows: 3;
   }
 }

@@ -13,10 +13,10 @@
             大模型安全攻防与<br /><span class="text-grad">可信评测虚拟仿真实验</span>
           </h1>
           <p class="mt-6 max-w-3xl text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
-            以大模型上线前安全测试流程为任务原型，通过预设案例与确定性仿真规则，完成越狱、幻觉、提示词注入、防御加固和复测评价，形成可追溯的安全评测报告。
+            从真实案例出发，完成越狱攻击测试、幻觉风险测试，再开启多层安全防御进行复测。每位学生完成攻防流程即可结束实验，结果与报告自动汇总。
           </p>
           <div class="mt-8 flex flex-wrap gap-3">
-            <RouterLink to="/experiment/prepare" class="experiment-primary-action">
+            <RouterLink to="/experiment/run" class="experiment-primary-action">
               <PlayCircle class="size-5" /> {{ state.status === 'not-started' ? '开始实验' : '继续实验' }}
             </RouterLink>
             <RouterLink to="/experiment/dashboard" class="experiment-secondary-action">
@@ -43,14 +43,14 @@
                 </div>
               </div>
               <div class="rounded-2xl bg-white/[.07] p-4">
-                <div class="flex items-center justify-between text-xs text-slate-400"><span>越狱攻击测试</span><span>12 / 32</span></div>
-                <div class="mt-2 h-1.5 rounded-full bg-white/10"><div class="h-full w-[38%] rounded-full bg-gradient-to-r from-violet-500 to-cyan-400"></div></div>
+                <div class="flex items-center justify-between text-xs text-slate-400"><span>安全防御与复测</span><span>3 / {{ experimentSteps.length }}</span></div>
+                <div class="mt-2 h-1.5 rounded-full bg-white/10"><div class="h-full w-2/3 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400"></div></div>
                 <div class="mt-4 rounded-xl border border-violet-400/30 bg-violet-500/10 p-3">
-                  <p class="text-xs font-semibold text-violet-200">当前任务 · 判定攻击是否成功</p>
-                  <p class="mt-2 text-[11px] leading-5 text-slate-400">依据模型响应中的护栏失效证据完成判断，而不是只看是否出现拒答字样。</p>
+                  <p class="text-xs font-semibold text-violet-200">当前任务 · 开启多层安全防御</p>
+                  <p class="mt-2 text-[11px] leading-5 text-slate-400">选择已测案例，开启防御层，对比前后响应并保存证据。</p>
                 </div>
                 <div class="mt-3 grid grid-cols-3 gap-2">
-                  <div v-for="label in ['攻击成功', '部分成功', '攻击失败']" :key="label" class="rounded-lg border border-white/10 bg-white/5 px-2 py-3 text-center text-[10px] text-slate-400 first:border-violet-400/50 first:bg-violet-500/15 first:text-violet-200">{{ label }}</div>
+                  <div v-for="label in ['输入层', '模型层', '输出层']" :key="label" class="rounded-lg border border-white/10 bg-white/5 px-2 py-3 text-center text-[10px] text-slate-400 first:border-violet-400/50 first:bg-violet-500/15 first:text-violet-200">{{ label }}</div>
                 </div>
               </div>
             </div>
@@ -72,11 +72,11 @@
 
     <section class="mt-8 experiment-card !p-0 overflow-hidden">
       <div class="border-b border-slate-200/70 px-6 py-5 dark:border-white/10 sm:px-8">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">Seven-stage route</p>
-        <h2 class="mt-2 text-2xl font-black text-slate-900 dark:text-white">七阶段、32个实质性交互操作</h2>
-        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">每一步都要求选择、配置、判断或提交证据，页面加载与单纯点击“下一步”不计入实验步骤。</p>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">Attack to defense</p>
+        <h2 class="mt-2 text-2xl font-black text-slate-900 dark:text-white">三个阶段，完成从攻击到防御</h2>
+        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">每阶段完成案例测试、证据标注和结果判定。防御复测结束后即可查看成绩。</p>
       </div>
-      <div class="grid gap-px bg-slate-200/70 dark:bg-white/10 md:grid-cols-2 xl:grid-cols-7">
+      <div class="grid gap-px bg-slate-200/70 dark:bg-white/10 md:grid-cols-3">
         <article v-for="stage in experimentStages" :key="stage.id" class="relative bg-white/90 p-5 dark:bg-slate-950/90">
           <div class="flex items-center justify-between"><span class="flex size-9 items-center justify-center rounded-xl text-sm font-black text-white" :style="{ backgroundColor: stage.accent }">{{ stage.index }}</span><span class="text-xs font-semibold text-slate-400">{{ stage.maxScore }}分</span></div>
           <h3 class="mt-4 font-bold text-slate-900 dark:text-white">{{ stage.title }}</h3>
@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { BrainCircuit, FileCheck2, GraduationCap, Info, Layers3, LayoutDashboard, Orbit, PlayCircle, Route, ShieldCheck } from 'lucide-vue-next'
+import { BrainCircuit, FileCheck2, GraduationCap, Info, Layers3, LayoutDashboard, Orbit, PlayCircle, ShieldCheck } from 'lucide-vue-next'
 import ExperimentLayout from '@/features/experiment/ExperimentLayout.vue'
 import { experimentStages, experimentSteps } from '@/features/experiment/catalog'
 import { useExperiment } from '@/features/experiment/useExperiment'
@@ -97,14 +97,14 @@ import type { StageId } from '@/features/experiment/types'
 
 const { state } = useExperiment()
 const heroStats = [
-  { value: '7', label: '实验阶段' },
-  { value: '32', label: '实质操作' },
+  { value: String(experimentStages.length), label: '实验阶段' },
+  { value: '2', label: '攻击测试类型' },
   { value: '100', label: '过程与结果总分' },
 ]
 const outcomes = [
-  { title: '攻防测试能力', description: '从攻击目标、样本和参数出发，复现越狱、幻觉与提示词注入风险。', icon: ShieldCheck },
+  { title: '攻防测试能力', description: '选择模型和原平台案例，复现越狱攻击与幻觉风险。', icon: ShieldCheck },
   { title: '证据分析能力', description: '依据仿真响应和参考材料形成可追溯的风险判断，而非凭主观印象评分。', icon: BrainCircuit },
-  { title: '综合决策能力', description: '比较防御收益与正常内容误拦截，输出风险等级、测试结论和整改建议。', icon: FileCheck2 },
+  { title: '防御配置能力', description: '自由组合三层防御，查看检测记录与同案例前后对照。', icon: FileCheck2 },
 ]
 const stageStepCount = (stageId: StageId) => experimentSteps.filter((step) => step.stageId === stageId).length
 </script>

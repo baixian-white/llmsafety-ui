@@ -1,5 +1,5 @@
 <template>
-  <ExperimentLayout>
+  <ExperimentLayout :wide="Boolean(currentStep.conversationStage)">
     <div v-if="restoreWarning" class="mb-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-950/30 dark:text-amber-100">
       <TriangleAlert class="size-5 shrink-0" /> {{ restoreWarning }}
     </div>
@@ -20,11 +20,11 @@
           <button class="experiment-stat-pill hover:border-violet-300 hover:text-violet-600 dark:hover:text-violet-300" @click="setGuideEnabled(true)"><CircleHelp class="size-4" /> 实验指导</button>
         </div>
       </div>
-      <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400 transition-all duration-500" :style="{ width: `${Math.max(progress, currentStep.number / experimentSteps.length * 100)}%` }"></div></div>
+      <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400 transition-all duration-500" :style="{ width: `${progress}%` }"></div></div>
     </header>
 
-    <div class="grid gap-5 xl:grid-cols-[250px_minmax(0,1fr)_310px]">
-      <aside class="experiment-card h-fit !p-3 xl:sticky xl:top-20">
+    <div class="grid grid-cols-1 gap-5" :class="currentStep.conversationStage ? 'xl:grid-cols-[200px_minmax(0,1fr)]' : 'xl:grid-cols-[250px_minmax(0,1fr)_310px]'">
+      <aside class="experiment-card h-fit min-w-0 !p-3 xl:sticky xl:top-20">
         <p class="px-2 pb-3 pt-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">实验阶段</p>
         <div class="flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-1 xl:overflow-visible">
           <button
@@ -71,20 +71,31 @@
             </div>
 
             <div class="mt-6">
+              <section v-if="currentStage.id === 'defense'" class="mb-5" aria-label="选择防御复测案例">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">选择已完成的案例进行防御复测</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">任选一个案例完成防御即可结束实验，也可切换案例继续比较。</p>
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                  <button v-for="item in attackCases" :key="item.stage" type="button" class="min-w-0 rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-40" :class="state.defenseConfiguration.sourceStage === item.stage ? 'border-cyan-500 bg-cyan-50 ring-2 ring-cyan-500/10 dark:bg-cyan-950/30' : 'border-slate-200 hover:border-cyan-400 dark:border-white/10'" :aria-pressed="state.defenseConfiguration.sourceStage === item.stage" :disabled="!item.run?.completed" @click="selectRetestSource(item.stage)">
+                    <span class="text-xs font-bold text-cyan-700 dark:text-cyan-200">{{ item.label }}</span>
+                    <span class="mt-2 block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ item.run?.caseTitle || '尚未完成案例测试' }}</span>
+                    <span class="mt-1 block text-xs text-slate-500">{{ item.run?.modelId }} · {{ state.defenseConfiguration.sourceStage === item.stage ? '当前复测案例' : '点击选择此案例' }}</span>
+                  </button>
+                </div>
+              </section>
               <ExperimentConversationWorkbench
-                v-if="currentStep.conversationStage"
-                :key="currentStep.id"
+                v-if="currentStep.conversationStage && (currentStage.id !== 'defense' || retestSource?.completed)"
+                :key="`${currentStep.id}-${currentStage.id === 'defense' ? state.defenseConfiguration.sourceStage : ''}`"
                 :stage="currentStep.conversationStage"
                 :initial-model-id="selectedExperimentModel"
                 :existing-run="currentConversation"
-                :retest-source="currentStep.conversationStage === 'defense' ? latestAttackRun : undefined"
-                :defense-layer-count="defenseLayerCount"
-                @model-change="syncExperimentModel"
+                :retest-source="currentStep.conversationStage === 'defense' ? retestSource : undefined"
+                :selected-defense-ids="state.defenseConfiguration.layerIds"
+                @defense-change="changeDefenseLayers"
                 @run="saveConversationRun"
                 @assessment="saveConversationAssessment"
                 @reset="resetConversationRun"
               />
-              <ExperimentStepControl v-else :step="currentStep" :model-value="currentAnswer" @update:model-value="updateAnswer" />
+              <p v-else class="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">请先完成前面的案例测试并保存证据，再进行防御复测。</p>
             </div>
 
             <div v-if="pendingFeedback" class="mt-6 rounded-2xl border p-4" :class="feedbackClass">
@@ -105,7 +116,7 @@
                 <button class="experiment-link-button" @click="showKnowledge = !showKnowledge"><BookOpen class="size-4" /> {{ showKnowledge ? '收起原理' : '查看原理' }}</button>
                 <button class="experiment-link-button" @click="requestHint"><Lightbulb class="size-4" /> 使用提示（{{ state.hints[currentStep.id] ?? 0 }}）</button>
                 <button class="experiment-primary-action disabled:cursor-not-allowed disabled:opacity-45" :disabled="!canCompleteCurrentStep" @click="submitStep">
-                  {{ pendingFeedback ? (isLastStep ? '完成实验并查看结果' : '确认反馈并继续') : '完成当前操作' }} <ArrowRight class="size-4" />
+                  {{ pendingFeedback ? (isLastStep ? '完成实验并生成报告' : '确认反馈并继续') : '完成当前操作' }} <ArrowRight class="size-4" />
                 </button>
               </div>
             </div>
@@ -117,12 +128,12 @@
         </article>
 
         <article v-if="currentStage.id === 'defense'" class="experiment-card">
-          <div class="flex items-center justify-between gap-3"><div><span class="experiment-section-kicker">实时复测预览</span><h2 class="mt-2 text-xl font-black text-slate-950 dark:text-white">策略变化将同时影响安全与可用性</h2></div><Gauge class="size-7 text-violet-500" /></div>
+          <div class="flex items-center justify-between gap-3"><div><span class="experiment-section-kicker">案例复测记录</span><h2 class="mt-2 text-xl font-black text-slate-950 dark:text-white">防御前后对照</h2></div><Gauge class="size-7 text-violet-500" /></div>
           <div class="mt-5"><MetricComparison :metrics="metrics" /></div>
         </article>
       </section>
 
-      <aside class="space-y-5 xl:sticky xl:top-20 xl:h-fit">
+      <aside :class="currentStep.conversationStage ? 'grid gap-5 sm:grid-cols-2 xl:col-start-2' : 'space-y-5 xl:sticky xl:top-20 xl:h-fit'">
         <section class="experiment-card !p-5">
           <p class="experiment-section-kicker">当前任务</p>
           <h2 class="mt-2 font-bold text-slate-900 dark:text-white">{{ currentStep.taskMapping }}</h2>
@@ -152,19 +163,18 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Award, BookMarked, BookOpen, Check, CheckCircle2, CircleHelp, Clock3, CloudCog, Gauge, History, Info, Lightbulb, ListChecks, TriangleAlert } from 'lucide-vue-next'
 import ExperimentGuide from '@/features/experiment/ExperimentGuide.vue'
 import ExperimentLayout from '@/features/experiment/ExperimentLayout.vue'
-import ExperimentStepControl from '@/features/experiment/ExperimentStepControl.vue'
 import ExperimentConversationWorkbench from '@/features/experiment/ExperimentConversationWorkbench.vue'
 import MetricComparison from '@/features/experiment/MetricComparison.vue'
 import { experimentStages, experimentSteps } from '@/features/experiment/catalog'
 import { getStepFeedback } from '@/features/experiment/engine'
 import { useExperiment } from '@/features/experiment/useExperiment'
-import type { ConversationRun, ConversationVerdict, StageId, StepAnswer, StepFeedback } from '@/features/experiment/types'
+import type { ConversationRun, ConversationVerdict, SourceCaseCategory, StageId, StepFeedback } from '@/features/experiment/types'
 
 const router = useRouter()
 const {
   state, restoreWarning, currentStep, currentStage, canCompleteCurrentStep, progress, score, metrics,
-  startExperiment, setAnswer, completeCurrentStep, goBack, goToStep, useHint, setGuideEnabled, addElapsedSeconds,
-  setConversationRun, updateConversationAssessment, clearConversationRun,
+  startExperiment, completeCurrentStep, goBack, goToStep, useHint, setGuideEnabled, addElapsedSeconds,
+  setConversationRun, updateConversationAssessment, clearConversationRun, setDefenseConfiguration,
 } = useExperiment()
 
 const pendingFeedback = ref<StepFeedback | null>(null)
@@ -176,17 +186,18 @@ const formattedTime = computed(() => {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
 const currentConversation = computed(() => currentStep.value.conversationStage ? state.value.conversations[currentStep.value.conversationStage] : undefined)
-const selectedExperimentModel = computed(() => typeof state.value.answers['model-profile'] === 'string' ? state.value.answers['model-profile'] : 'deepseek-r1')
-const latestAttackRun = computed(() => state.value.conversations.injection || state.value.conversations.jailbreak || state.value.conversations.hallucination || state.value.conversations.baseline)
-const defenseLayerCount = computed(() => {
-  const configured = ['input-detection', 'prompt-protection', 'output-filter'].filter((id) => Boolean(state.value.answers[id])).length
-  return Math.max(1, configured)
-})
+const selectedExperimentModel = computed(() => state.value.conversations.jailbreak?.modelId || 'deepseek-r1')
+const retestSource = computed(() => state.value.conversations[state.value.defenseConfiguration.sourceStage])
+const attackCases = computed(() => [
+  { stage: 'jailbreak' as const, label: '越狱攻击案例', run: state.value.conversations.jailbreak },
+  { stage: 'hallucination' as const, label: '幻觉风险案例', run: state.value.conversations.hallucination },
+])
 const recentCompleted = computed(() => state.value.completedStepIds.slice(-4).reverse().map((id) => experimentSteps.find((step) => step.id === id)).filter((step): step is typeof experimentSteps[number] => Boolean(step)))
 const completionHint = computed(() => {
   if (currentStep.value.conversationStage) {
+    if (currentStage.value.id === 'defense' && !state.value.defenseConfiguration.layerIds.length) return '至少开启一层防御，然后发送同案例复测'
     const run = currentConversation.value
-    if (!run) return '选择原平台案例，编辑提示词并点击发送'
+    if (!run) return currentStage.value.id === 'defense' ? '选择已测案例并配置防御层，发送同案例复测' : '选择原平台案例，编辑提示词并点击发送'
     if (!run.messages.some((item) => item.role === 'assistant')) return '等待仿真模型完成响应'
     if (!run.selectedEvidence.length) return '从模型回复和防御链中至少选择1条证据'
     if (!run.verdict) return '根据证据作出安全判定并保存'
@@ -204,12 +215,13 @@ const feedbackClass = computed(() => ({
   danger: 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-100',
 }[pendingFeedback.value?.severity ?? 'info']))
 
-const updateAnswer = (answer: StepAnswer) => {
+const selectRetestSource = (sourceStage: SourceCaseCategory) => {
   pendingFeedback.value = null
-  setAnswer(answer)
+  setDefenseConfiguration({ ...state.value.defenseConfiguration, sourceStage })
 }
-const syncExperimentModel = (modelId: string) => {
-  if (!state.value.completedStepIds.includes('model-profile')) setAnswer(modelId, 'model-profile')
+const changeDefenseLayers = (layerIds: number[]) => {
+  pendingFeedback.value = null
+  setDefenseConfiguration({ ...state.value.defenseConfiguration, layerIds })
 }
 const saveConversationRun = (run: ConversationRun) => {
   pendingFeedback.value = null
@@ -241,7 +253,7 @@ const submitStep = async () => {
   if (!completeCurrentStep()) return
   pendingFeedback.value = null
   showKnowledge.value = false
-  if (last) await router.push('/experiment/result')
+  if (last) await router.push('/experiment/report')
 }
 const back = () => { pendingFeedback.value = null; goBack() }
 const stageSteps = (stageId: StageId) => experimentSteps.filter((step) => step.stageId === stageId)

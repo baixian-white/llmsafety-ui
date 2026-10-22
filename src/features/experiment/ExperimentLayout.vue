@@ -3,7 +3,7 @@
     <div class="experiment-orb experiment-orb-one" aria-hidden="true"></div>
     <div class="experiment-orb experiment-orb-two" aria-hidden="true"></div>
 
-    <main class="relative z-10 mx-auto w-full max-w-[1500px] px-4 pb-16 pt-20 sm:px-6 lg:px-8">
+    <main class="relative z-10 mx-auto w-full px-4 pb-16 pt-20 sm:px-6 lg:px-8" :class="wide ? 'max-w-[1800px]' : 'max-w-[1500px]'">
       <nav class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-3 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60" aria-label="虚拟仿真实验导航">
         <RouterLink to="/experiment" class="flex items-center gap-3">
           <span class="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20">
@@ -30,10 +30,11 @@
 import { FlaskConical } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 
+defineProps<{ wide?: boolean }>()
+
 const route = useRoute()
 const links = [
   { to: '/experiment', label: '实验概览' },
-  { to: '/experiment/prepare', label: '实验准备' },
   { to: '/experiment/run', label: '实验操作' },
   { to: '/experiment/result', label: '实验结果' },
   { to: '/experiment/report', label: '实验报告' },

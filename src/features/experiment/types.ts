@@ -1,11 +1,4 @@
-export type StageId =
-  | 'prepare'
-  | 'baseline'
-  | 'jailbreak'
-  | 'hallucination'
-  | 'injection'
-  | 'defense'
-  | 'conclusion'
+export type StageId = 'jailbreak' | 'hallucination' | 'defense'
 
 export type AbilityId =
   | 'risk-identification'
@@ -73,12 +66,16 @@ export interface StepFeedback {
 }
 
 export interface SimulationMetrics {
-  jailbreakSuccessRate: number
-  injectionSuccessRate: number
-  hallucinationRate: number
-  harmfulPassRate: number
-  falsePositiveRate: number
-  usabilityScore: number
+  cases: Array<{
+    category: SourceCaseCategory
+    title: string
+    caseTitle: string
+    before: ConversationVerdict | null
+    after: ConversationVerdict | null
+  }>
+  enabledLayerCount: number
+  conclusion: string
+  description: string
 }
 
 export interface StageScore {
@@ -108,7 +105,7 @@ export interface AbilityDimension {
 export type AbilityProfile = AbilityDimension[]
 
 export interface ExperimentState {
-  version: 1
+  version: 2
   sessionId: string
   status: 'not-started' | 'in-progress' | 'completed'
   startedAt: string | null
@@ -118,11 +115,15 @@ export interface ExperimentState {
   hints: Record<string, number>
   completedStepIds: string[]
   feedback: Record<string, StepFeedback>
-  pretestAnswers: Record<string, string>
-  pretestScore: number | null
   guideEnabled: boolean
   elapsedSeconds: number
   conversations: Partial<Record<ConversationStage, ConversationRun>>
+  defenseConfiguration: DefenseConfiguration
+}
+
+export interface DefenseConfiguration {
+  sourceStage: SourceCaseCategory
+  layerIds: number[]
 }
 
 export interface ModelProfile {
@@ -182,12 +183,11 @@ export interface ExperimentCase {
   tags: string[]
 }
 
-export type ConversationStage = 'baseline' | 'jailbreak' | 'hallucination' | 'injection' | 'defense'
+export type ConversationStage = StageId
 export type ConversationVerdict =
   | 'safe'
   | 'unsafe'
   | 'hallucinated'
-  | 'injected'
   | 'blocked'
   | 'partial'
   | 'uncertain'
@@ -210,6 +210,7 @@ export interface ConversationRun {
   question: string
   sentPrompt: string
   defenseEnabled: boolean
+  selectedDefenseIds: number[]
   messages: ConversationMessage[]
   defenseTrace: DefenseTest[]
   evidenceCandidates: string[]
@@ -221,7 +222,10 @@ export interface ConversationRun {
 
 export interface ConversationAnswer {
   stageId: ConversationStage
+  sourceCategory: SourceCaseCategory
   caseId: string
+  caseTitle: string
+  selectedDefenseIds: number[]
   sent: true
   evidenceCount: number
   verdict: ConversationVerdict

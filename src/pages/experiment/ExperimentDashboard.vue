@@ -11,7 +11,7 @@
 
     <section class="mt-5 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
       <article class="experiment-card">
-        <div class="flex items-center justify-between"><div><span class="experiment-section-kicker">阶段表现</span><h2 class="mt-2 text-xl font-black text-slate-950 dark:text-white">七阶段平均得分率</h2></div><BarChart3 class="size-6 text-violet-500" /></div>
+        <div class="flex items-center justify-between"><div><span class="experiment-section-kicker">阶段表现</span><h2 class="mt-2 text-xl font-black text-slate-950 dark:text-white">三个阶段平均得分率</h2></div><BarChart3 class="size-6 text-violet-500" /></div>
         <div class="mt-6 space-y-4"><div v-for="item in stageAverages" :key="item.label"><div class="mb-2 flex justify-between text-sm"><span class="font-medium text-slate-700 dark:text-slate-200">{{ item.label }}</span><span class="text-slate-500">{{ item.value }}%</span></div><div class="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-400" :style="{ width: `${item.value}%` }"></div></div></div></div>
       </article>
       <article class="experiment-card">
@@ -45,21 +45,19 @@ const summary = [
   { label: '演示学生数', value: '36', trend: '演示数据', trendClass: 'text-cyan-500', icon: Users },
   { label: '实验完成率', value: '83%', trend: '+12%', trendClass: 'text-emerald-500', icon: CheckCircle2 },
   { label: '平均成绩', value: '84.6', trend: '+4.8', trendClass: 'text-emerald-500', icon: Target },
-  { label: '平均实验用时', value: '76min', trend: '-6min', trendClass: 'text-violet-500', icon: Clock3 },
+  { label: '平均实验用时', value: '20min', trend: '演示数据', trendClass: 'text-violet-500', icon: Clock3 },
 ]
 const stageAverages = [
-  { label: '任务准备', value: 91 }, { label: '基线测试', value: 88 }, { label: '越狱攻击测试', value: 82 },
-  { label: '幻觉风险测试', value: 76 }, { label: '提示词注入测试', value: 73 }, { label: '安全防御与复测', value: 80 }, { label: '综合评价', value: 86 },
+  { label: '越狱攻击测试', value: 82 }, { label: '幻觉风险测试', value: 76 }, { label: '安全防御与复测', value: 80 },
 ]
 const riskAccuracy = [
   { label: '越狱攻击', value: 89, color: '#7c3aed', note: '角色扮演证据判断较稳定' },
   { label: '事实幻觉', value: 74, color: '#f59e0b', note: '虚构引用仍易被漏标' },
-  { label: '提示词注入', value: 71, color: '#06b6d4', note: '间接注入影响判断需加强' },
 ]
 const commonErrors = [
-  { label: '只降低攻击率，忽略误拦截', rate: 42, advice: '补充安全—可用性权衡案例。' },
+  { label: '只看已开启，忽略防御结果', rate: 42, advice: '结合各层检测与最终回答作出判定。' },
   { label: '未标记虚构引用', rate: 36, advice: '强化回答与证据逐项对照。' },
-  { label: '混淆任务劫持与提示泄露', rate: 31, advice: '使用影响类型对照表讲解。' },
+  { label: '更换案例后直接对比', rate: 31, advice: '保持模型、案例与提示词一致。' },
 ]
 const statusClass = (status: string) => status === '已完成'
   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200'

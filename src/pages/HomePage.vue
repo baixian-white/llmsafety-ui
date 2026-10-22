@@ -156,12 +156,12 @@ const moreFeatures = [
         <RouterLink to="/experiment" class="group mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] border border-violet-200 bg-white/85 shadow-2xl shadow-violet-500/10 backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-violet-500/20 dark:border-violet-500/20 dark:bg-slate-950/75 lg:grid-cols-[1.2fr_.8fr]">
           <div class="p-7 sm:p-10">
             <span class="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">2026“人工智能+”虚拟仿真实验教学项目</span>
-            <h2 class="mt-5 text-3xl font-black text-slate-950 dark:text-white">七阶段、32步大模型安全攻防实验</h2>
-            <p class="mt-3 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">以普通网站教程式引导串联越狱、幻觉、提示词注入、防御复测、过程评分、能力画像和实验报告。</p>
+            <h2 class="mt-5 text-3xl font-black text-slate-950 dark:text-white">三个阶段，完成大模型安全攻防实验</h2>
+            <p class="mt-3 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">完成越狱攻击与幻觉风险测试，再开启多层安全防御进行案例复测，自动生成成绩、能力画像和实验报告。</p>
             <span class="mt-6 inline-flex items-center gap-2 font-bold text-violet-600 dark:text-violet-300">查看实验设计 <ArrowRight class="size-4 transition group-hover:translate-x-1" /></span>
           </div>
           <div class="grid grid-cols-2 gap-px bg-violet-200/60 dark:bg-violet-500/20">
-            <div v-for="item in [{ value: '7', label: '实验阶段' }, { value: '32', label: '实质操作' }, { value: '100', label: '评价总分' }, { value: '5', label: '能力维度' }]" :key="item.label" class="flex flex-col items-center justify-center bg-violet-50/80 p-5 dark:bg-violet-950/30"><span class="text-4xl font-black text-violet-600 dark:text-violet-300">{{ item.value }}</span><span class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.label }}</span></div>
+            <div v-for="item in [{ value: '3', label: '实验阶段' }, { value: '2', label: '攻击测试类型' }, { value: '100', label: '评价总分' }, { value: '3', label: '可选防御层' }]" :key="item.label" class="flex flex-col items-center justify-center bg-violet-50/80 p-5 dark:bg-violet-950/30"><span class="text-4xl font-black text-violet-600 dark:text-violet-300">{{ item.value }}</span><span class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.label }}</span></div>
           </div>
         </RouterLink>
       </section>

@@ -7,12 +7,13 @@ import type {
   DefenseTest,
   ExperimentCase,
 } from './types'
+import { normalizeDefenseIds } from './defenseLayers'
 
 interface CreateConversationOptions {
   stageId: ConversationStage
   sentPrompt: string
   defenseEnabled: boolean
-  enabledDefenseCount?: number
+  selectedDefenseIds?: number[]
 }
 
 const compact = (value: string, maxLength = 180): string => {
@@ -29,9 +30,10 @@ const message = (
 
 export const selectDefenseTrace = (
   caseData: ExperimentCase,
-  enabledDefenseCount = caseData.defenseTests.length,
+  selectedDefenseIds = caseData.defenseTests.map((test) => test.id),
 ): DefenseTest[] => {
-  const selected = caseData.defenseTests.slice(0, Math.max(0, enabledDefenseCount))
+  const ids = normalizeDefenseIds(selectedDefenseIds)
+  const selected = caseData.defenseTests.filter((test) => ids.includes(test.id)).sort((a, b) => a.id - b.id)
   if (caseData.category === 'hallucination') return selected
   const blockingIndex = selected.findIndex((test) => test.illegal)
   return blockingIndex >= 0 ? selected.slice(0, blockingIndex + 1) : selected
@@ -39,9 +41,7 @@ export const selectDefenseTrace = (
 
 const expectedWithoutDefense = (
   caseData: ExperimentCase,
-  stageId: ConversationStage,
 ): ConversationVerdict => {
-  if (stageId === 'injection') return 'injected'
   if (caseData.category === 'hallucination') return 'hallucinated'
   return 'unsafe'
 }
@@ -51,11 +51,15 @@ const responseWithDefense = (
   defenseTrace: DefenseTest[],
 ): { response: string; verdict: ConversationVerdict } => {
   if (caseData.category === 'hallucination') {
-    const fallback = [...defenseTrace].reverse().find((test) => test.output)?.output
-    return {
-      response: caseData.correctedResponse || fallback || caseData.referenceAnswer || caseData.baselineResponse,
-      verdict: 'safe',
+    const corrections = defenseTrace.filter((test) => test.illegal && test.output.trim())
+    if (corrections.length) {
+      const allLayersRan = caseData.defenseTests.every((test) => defenseTrace.some((item) => item.id === test.id))
+      return {
+        response: (allLayersRan && caseData.correctedResponse) || corrections[corrections.length - 1].output,
+        verdict: 'safe',
+      }
     }
+    return { response: caseData.baselineResponse, verdict: 'hallucinated' }
   }
 
   const blocking = defenseTrace.find((test) => test.illegal)
@@ -75,7 +79,6 @@ export const createEvidenceCandidates = (
   if (caseData.referenceAnswer) evidence.push(`参考答案：${compact(caseData.referenceAnswer)}`)
   if (verdict === 'hallucinated') evidence.push(`模型回答：${compact(reply)}`)
   if (verdict === 'unsafe') evidence.push(`模型未保持拒答边界并给出响应：${compact(reply)}`)
-  if (verdict === 'injected') evidence.push(`模型响应受到低优先级指令影响：${compact(reply)}`)
   for (const test of defenseTrace) {
     evidence.push(`${test.name}：${compact(test.output || test.process)}`)
   }
@@ -89,12 +92,17 @@ export const createConversationRun = (
   const sentPrompt = options.sentPrompt.trim()
   if (!sentPrompt) throw new Error('测试提示词不能为空')
 
-  const defenseTrace = options.defenseEnabled
-    ? selectDefenseTrace(caseData, options.enabledDefenseCount)
+  const selectedDefenseIds = options.stageId === 'defense' && options.defenseEnabled
+    ? normalizeDefenseIds(options.selectedDefenseIds ?? caseData.defenseTests.map((test) => test.id))
+      .filter((id) => caseData.defenseTests.some((test) => test.id === id))
     : []
-  const result = options.defenseEnabled
+  const defenseEnabled = selectedDefenseIds.length > 0
+  const defenseTrace = defenseEnabled
+    ? selectDefenseTrace(caseData, selectedDefenseIds)
+    : []
+  const result = defenseEnabled
     ? responseWithDefense(caseData, defenseTrace)
-    : { response: caseData.baselineResponse, verdict: expectedWithoutDefense(caseData, options.stageId) }
+    : { response: caseData.baselineResponse, verdict: expectedWithoutDefense(caseData) }
   const responseTone = result.verdict === 'blocked' || result.verdict === 'safe'
     ? 'success'
     : result.verdict === 'hallucinated'
@@ -109,7 +117,8 @@ export const createConversationRun = (
     caseTitle: caseData.title,
     question: caseData.question,
     sentPrompt,
-    defenseEnabled: options.defenseEnabled,
+    defenseEnabled,
+    selectedDefenseIds,
     messages: [
       message(`${caseData.id}-notice`, 'system', '以下回答来自原测试平台预设案例，用于可重复的虚拟仿真实验。', 'info'),
       message(`${caseData.id}-user`, 'user', sentPrompt),
@@ -126,11 +135,13 @@ export const createConversationRun = (
 export const isMatchingRetestRun = (
   run: ConversationRun,
   source: ConversationRun,
+  selectedDefenseIds?: number[],
 ): boolean => run.stageId === 'defense'
-  && run.defenseEnabled
+  && run.sourceCategory === source.sourceCategory
   && run.modelId === source.modelId
   && run.caseId === source.caseId
   && run.sentPrompt === source.sentPrompt
+  && (!selectedDefenseIds || JSON.stringify(run.selectedDefenseIds) === JSON.stringify(normalizeDefenseIds(selectedDefenseIds)))
 
 export const buildConversationAnswer = (run: ConversationRun): ConversationAnswer => {
   if (!run.completed || !run.verdict || run.selectedEvidence.length < 1) {
@@ -138,7 +149,10 @@ export const buildConversationAnswer = (run: ConversationRun): ConversationAnswe
   }
   return {
     stageId: run.stageId,
+    sourceCategory: run.sourceCategory,
     caseId: run.caseId,
+    caseTitle: run.caseTitle,
+    selectedDefenseIds: [...run.selectedDefenseIds],
     sent: true,
     evidenceCount: run.selectedEvidence.length,
     verdict: run.verdict,
